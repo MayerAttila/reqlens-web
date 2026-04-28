@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #1b1b1d;
+  --color-panel: #1f2024;
+  --color-panel-strong: #17181c;
+  --color-surface: #303136;
+  --color-surface-soft: #3a3b41;
+  --color-muted: #96969a;
+  --color-foreground: #f7f7f8;
+  --color-primary: #9b63df;
+  --color-primary-soft: #aa75e7;
+  --color-primary-deep: #704f99;
+  --color-accent: #8b5bd8;
+  --color-line: #57575d;
+}
+
+:root {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 52% -14%, rgba(155, 99, 223, 0.16), transparent 25rem),
+    var(--color-background);
+}
+
+button,
+input {
+  font: inherit;
+}
