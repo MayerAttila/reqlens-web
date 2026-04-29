@@ -37,3 +37,39 @@ button,
 input {
   font: inherit;
 }
+
+.Toastify__toast {
+  border-radius: 16px;
+  background: var(--color-panel);
+  color: var(--color-foreground);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.32);
+}
+
+.Toastify__toast-icon svg {
+  fill: currentColor;
+}
+
+.Toastify__toast--success {
+  color: var(--color-primary-soft);
+}
+
+.Toastify__toast--error {
+  color: #fca5a5;
+}
+
+.Toastify__toast--info {
+  color: var(--color-primary-soft);
+}
+
+.Toastify__toast--warning {
+  color: #fde68a;
+}
+
+.Toastify__close-button {
+  color: var(--color-muted);
+  opacity: 1;
+}
+
+.Toastify__close-button:hover {
+  color: var(--color-foreground);
+}

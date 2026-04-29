@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ButtonLink } from "../components/ui/button";
+import { ButtonLink } from "../../components/ui/button";
 
 export default function HomePage() {
   return (
@@ -40,7 +40,9 @@ export default function HomePage() {
           <section className="rounded-[28px] border border-white/10 bg-background/60 p-5">
             <div className="mb-5 flex items-center justify-between text-sm text-muted">
               <span>Live preview</span>
-              <span className="rounded-full bg-primary/20 px-3 py-1 text-primary-soft">demo</span>
+              <span className="rounded-full bg-primary/20 px-3 py-1 text-primary-soft">
+                demo
+              </span>
             </div>
             <div className="grid gap-3">
               {[
@@ -54,7 +56,9 @@ export default function HomePage() {
                 >
                   <span className="font-semibold">{route}</span>
                   <span className="text-muted">{latency}</span>
-                  <span className="rounded-full bg-surface px-3 py-1 text-sm">{status}</span>
+                  <span className="rounded-full bg-surface px-3 py-1 text-sm">
+                    {status}
+                  </span>
                 </div>
               ))}
             </div>

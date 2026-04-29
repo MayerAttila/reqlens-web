@@ -1,12 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { authClient } from "../../lib/auth-client";
 import { Button } from "../ui/button";
 import { TextInput } from "../ui/text-input";
 
 export function SignupForm() {
+  const router = useRouter();
   const [formError, setFormError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -55,6 +57,7 @@ export function SignupForm() {
         render: "Account created.",
         type: "success"
       });
+      router.push("/dashboard");
     } catch {
       toast.update(toastId, {
         autoClose: 4200,

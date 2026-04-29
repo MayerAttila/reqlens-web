@@ -1,12 +1,15 @@
 "use client";
 
 import { FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { authClient } from "../../lib/auth-client";
 import { Button } from "../ui/button";
 import { TextInput } from "../ui/text-input";
 
 export function LoginForm() {
+  const router = useRouter();
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -24,7 +27,7 @@ export function LoginForm() {
           autoClose: 4200,
           isLoading: false,
           render: result.error.message ?? "Could not log in.",
-          type: "error"
+          type: "error",
         });
         return;
       }
@@ -33,14 +36,15 @@ export function LoginForm() {
         autoClose: 3200,
         isLoading: false,
         render: "Logged in.",
-        type: "success"
+        type: "success",
       });
+      router.push("/dashboard");
     } catch {
       toast.update(toastId, {
         autoClose: 4200,
         isLoading: false,
         render: "Could not reach the auth server.",
-        type: "error"
+        type: "error",
       });
     }
   }

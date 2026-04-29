@@ -1,17 +1,21 @@
 "use client";
 
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, Zoom } from "react-toastify";
 
 export function ToastProvider() {
   return (
     <ToastContainer
-      autoClose={3200}
-      closeOnClick
+      autoClose={5000}
+      closeOnClick={false}
       draggable
-      newestOnTop
-      pauseOnFocusLoss={false}
-      position="top-right"
+      hideProgressBar
+      newestOnTop={false}
+      pauseOnFocusLoss
+      pauseOnHover
+      position="top-center"
+      rtl={false}
       theme="dark"
+      transition={Zoom}
     />
   );
 }
