@@ -1,9 +1,10 @@
-import { CopyIcon } from "../../../../components/icons";
+import { CopyIcon, TrashIcon } from "../../../../components/icons";
 import { Project } from "./projects-panel";
 
 type ProjectCardProps = {
   isSelected: boolean;
   onCopyApiKey: (projectId: string) => void;
+  onDeleteProject: (project: Project) => void;
   onSelect: (projectId: string) => void;
   project: Project;
 };
@@ -11,6 +12,7 @@ type ProjectCardProps = {
 export function ProjectCard({
   isSelected,
   onCopyApiKey,
+  onDeleteProject,
   onSelect,
   project
 }: ProjectCardProps) {
@@ -47,20 +49,34 @@ export function ProjectCard({
         <p className={`text-xs ${isSelected ? "text-white/65" : "text-muted"}`}>
           Created {new Date(project.createdAt).toLocaleDateString()}
         </p>
-        {project.hasApiKey ? (
+        <div className="flex items-center gap-2">
+          {project.hasApiKey ? (
+            <button
+              aria-label={`Copy API key for ${project.name}`}
+              className={`rounded-xl p-2 transition ${
+                isSelected
+                  ? "bg-white/15 text-white hover:bg-white/25"
+                  : "bg-surface text-muted hover:bg-surface-soft hover:text-foreground"
+              }`}
+              onClick={() => onCopyApiKey(project.id)}
+              type="button"
+            >
+              <CopyIcon className="h-5 w-5" />
+            </button>
+          ) : null}
           <button
-            aria-label={`Copy API key for ${project.name}`}
+            aria-label={`Delete ${project.name}`}
             className={`rounded-xl p-2 transition ${
               isSelected
-                ? "bg-white/15 text-white hover:bg-white/25"
-                : "bg-surface text-muted hover:bg-surface-soft hover:text-foreground"
+                ? "bg-white/15 text-white hover:bg-red-500/70"
+                : "bg-surface text-muted hover:bg-red-500/15 hover:text-red-200"
             }`}
-            onClick={() => onCopyApiKey(project.id)}
+            onClick={() => onDeleteProject(project)}
             type="button"
           >
-            <CopyIcon className="h-5 w-5" />
+            <TrashIcon className="h-5 w-5" />
           </button>
-        ) : null}
+        </div>
       </div>
     </article>
   );

@@ -158,6 +158,63 @@ export function ProjectsPanel() {
     }
   }
 
+  async function deleteProject(project: Project) {
+    const confirmed = window.confirm(
+      `Delete "${project.name}"? This also deletes its saved request logs.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const toastId = toast.loading("Deleting project...");
+
+    try {
+      const response = await fetch(`${apiUrl}/projects/${project.id}`, {
+        credentials: "include",
+        method: "DELETE"
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        toast.update(toastId, {
+          autoClose: 4200,
+          isLoading: false,
+          render: data.error ?? "Could not delete project.",
+          type: "error"
+        });
+        return;
+      }
+
+      setProjects((current) => {
+        const nextProjects = current.filter((item) => item.id !== project.id);
+        setSelectedProjectId((currentSelected) => {
+          if (currentSelected !== project.id) {
+            return currentSelected;
+          }
+
+          return nextProjects[0]?.id ?? "";
+        });
+        return nextProjects;
+      });
+      toast.update(toastId, {
+        autoClose: 3200,
+        isLoading: false,
+        render: "Project deleted.",
+        type: "success"
+      });
+    } catch {
+      toast.update(toastId, {
+        autoClose: 4200,
+        isLoading: false,
+        render: "Could not reach the API server.",
+        type: "error"
+      });
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <section className="flex flex-col gap-4 rounded-3xl bg-panel p-6 shadow-2xl shadow-black/20 md:flex-row md:items-center md:justify-between">
@@ -208,6 +265,7 @@ export function ProjectsPanel() {
                   isSelected={selected}
                   key={project.id}
                   onCopyApiKey={copyApiKey}
+                  onDeleteProject={deleteProject}
                   onSelect={setSelectedProjectId}
                   project={project}
                 />
