@@ -1,5 +1,3 @@
-import { DashboardShell } from "../../../components/dashboard/dashboard-shell";
+import { DashboardPage } from "../../../components/dashboard/dashboard-page";
 
-export default function DashboardPage() {
-  return <DashboardShell />;
-}
+export default DashboardPage;

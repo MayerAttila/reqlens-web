@@ -2,11 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { toast } from "react-toastify";
 import { authClient } from "../../lib/auth-client";
-import { Button } from "../ui/button";
+import { DashboardSidebar } from "./dashboard-sidebar";
 
-export function DashboardShell() {
+type DashboardShellProps = {
+  initialSidebarCollapsed?: boolean;
+};
+
+export function DashboardShell({
+  initialSidebarCollapsed = true
+}: DashboardShellProps) {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
@@ -15,39 +20,6 @@ export function DashboardShell() {
       router.replace("/login");
     }
   }, [isPending, router, session]);
-
-  async function handleSignOut() {
-    const toastId = toast.loading("Signing out...");
-
-    try {
-      const result = await authClient.signOut();
-
-      if (result.error) {
-        toast.update(toastId, {
-          autoClose: 4200,
-          isLoading: false,
-          render: result.error.message ?? "Could not sign out.",
-          type: "error"
-        });
-        return;
-      }
-
-      toast.update(toastId, {
-        autoClose: 3200,
-        isLoading: false,
-        render: "Signed out.",
-        type: "success"
-      });
-      router.replace("/login");
-    } catch {
-      toast.update(toastId, {
-        autoClose: 4200,
-        isLoading: false,
-        render: "Could not reach the auth server.",
-        type: "error"
-      });
-    }
-  }
 
   if (isPending || !session) {
     return (
@@ -58,25 +30,24 @@ export function DashboardShell() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-6 py-8 text-foreground">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-10">
-        <header className="flex flex-col gap-5 rounded-3xl border border-line bg-panel p-6 shadow-2xl shadow-black/20 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.28em] text-primary">
-              Reqlens dashboard
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight">
-              Welcome back{session.user.name ? `, ${session.user.name}` : ""}.
-            </h1>
-            <p className="mt-2 max-w-2xl text-muted">
-              This is the base authenticated dashboard. Next we can add projects,
-              API keys, and request analytics here.
-            </p>
-          </div>
-          <Button onClick={handleSignOut} type="button" variant="secondary">
-            Sign out
-          </Button>
-        </header>
+    <main className="flex min-h-screen bg-background text-foreground">
+      <DashboardSidebar initialCollapsed={initialSidebarCollapsed} />
+      <section className="min-w-0 flex-1 px-6 py-8 md:px-10">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+          <header className="rounded-3xl bg-panel p-6 shadow-2xl shadow-black/20">
+            <div>
+              <p className="text-sm uppercase tracking-[0.28em] text-primary">
+                Reqlens dashboard
+              </p>
+              <h1 className="mt-3 text-4xl font-black tracking-tight">
+                Welcome back{session.user.name ? `, ${session.user.name}` : ""}.
+              </h1>
+              <p className="mt-2 max-w-2xl text-muted">
+                This is the base authenticated dashboard. Next we can add
+                projects, API keys, and request analytics here.
+              </p>
+            </div>
+          </header>
 
         <div className="grid gap-4 md:grid-cols-3">
           {[
@@ -93,6 +64,7 @@ export function DashboardShell() {
               <p className="mt-3 text-sm text-muted">{copy}</p>
             </article>
           ))}
+        </div>
         </div>
       </section>
     </main>
