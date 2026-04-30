@@ -1,10 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
+import { MetricGrid } from "../../../../components/ui/metric-grid";
 import { CreateProjectModal } from "./create-project-modal";
 import { ProjectCard } from "./project-card";
+import { SelectedProjectPanel } from "./selected-project-panel";
 
 export type Project = {
   id: string;
@@ -14,20 +16,60 @@ export type Project = {
   hasApiKey: boolean;
 };
 
+type RequestLog = {
+  id: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  durationMs: number;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
+type ProjectLogs = {
+  projectId: string;
+  projectName: string;
+  hasApiKey: boolean;
+  logs: RequestLog[];
+};
+
+export type ProjectStats = {
+  errorCount: number;
+  health: "Has errors" | "Healthy" | "No traffic";
+  lastRequestAt: string | null;
+  lastStatus: number | null;
+  requestCount: number;
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
+const emptyProjectStats: ProjectStats = {
+  errorCount: 0,
+  health: "No traffic",
+  lastRequestAt: null,
+  lastStatus: null,
+  requestCount: 0
+};
 
 export function ProjectsPanel() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [projectLogs, setProjectLogs] = useState<ProjectLogs[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
-  const selectedProject =
-    projects.find((project) => project.id === selectedProjectId) ?? projects[0];
+  const selectedProject = useMemo(
+    () =>
+      projects.find((project) => project.id === selectedProjectId) ?? projects[0],
+    [projects, selectedProjectId]
+  );
 
   useEffect(() => {
-    void loadProjects();
+    void loadPageData();
   }, []);
+
+  async function loadPageData() {
+    await Promise.all([loadProjects(), loadLogs()]);
+  }
 
   async function loadProjects() {
     try {
@@ -48,6 +90,84 @@ export function ProjectsPanel() {
       setIsLoading(false);
     }
   }
+
+  async function loadLogs() {
+    try {
+      const response = await fetch(`${apiUrl}/logs`, {
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not load project stats.");
+      }
+
+      const data = (await response.json()) as { projects: ProjectLogs[] };
+      setProjectLogs(data.projects);
+    } catch {
+      toast.error("Could not load project stats.");
+    }
+  }
+
+  const statsByProjectId = useMemo(() => {
+    const stats = new Map<string, ProjectStats>();
+
+    for (const project of projects) {
+      const logs =
+        projectLogs.find((item) => item.projectId === project.id)?.logs ?? [];
+      const sortedLogs = [...logs].sort(
+        (first, second) =>
+          new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+      );
+      const latestLog = sortedLogs[0];
+      const errorCount = logs.filter((log) => log.statusCode >= 400).length;
+
+      stats.set(project.id, {
+        errorCount,
+        health:
+          logs.length === 0 ? "No traffic" : errorCount > 0 ? "Has errors" : "Healthy",
+        lastRequestAt: latestLog?.createdAt ?? null,
+        lastStatus: latestLog?.statusCode ?? null,
+        requestCount: logs.length
+      });
+    }
+
+    return stats;
+  }, [projectLogs, projects]);
+
+  const totalRequests = Array.from(statsByProjectId.values()).reduce(
+    (total, stats) => total + stats.requestCount,
+    0
+  );
+  const totalErrors = Array.from(statsByProjectId.values()).reduce(
+    (total, stats) => total + stats.errorCount,
+    0
+  );
+  const projectsWithErrors = Array.from(statsByProjectId.values()).filter(
+    (stats) => stats.errorCount > 0
+  ).length;
+  const metricBlocks = useMemo(
+    () => [
+      { label: "Projects", value: projects.length },
+      {
+        label: "Active keys",
+        value: projects.filter((project) => project.hasApiKey).length
+      },
+      { label: "Total requests", value: totalRequests },
+      {
+        label: "Projects with errors",
+        tone: "danger" as const,
+        value: projectsWithErrors
+      }
+    ],
+    [projects, projectsWithErrors, totalRequests]
+  );
+  const selectedProjectStats = selectedProject
+    ? statsByProjectId.get(selectedProject.id) ?? emptyProjectStats
+    : null;
+  const openCreateModal = useCallback(() => setIsCreateOpen(true), []);
+  const handleSelectProject = useCallback((projectId: string) => {
+    setSelectedProjectId(projectId);
+  }, []);
 
   async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,6 +319,9 @@ export function ProjectsPanel() {
         });
         return nextProjects;
       });
+      setProjectLogs((current) =>
+        current.filter((item) => item.projectId !== project.id)
+      );
       toast.update(toastId, {
         autoClose: 3200,
         isLoading: false,
@@ -217,26 +340,20 @@ export function ProjectsPanel() {
 
   return (
     <div className="grid gap-6">
-      <section className="flex flex-col gap-4 rounded-3xl bg-panel p-6 shadow-2xl shadow-black/20 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-black">Your projects</h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted">
-            Create one project per backend app. Each project owns API keys used by
-            the Reqlens middleware. One project owns one API key.
-          </p>
-        </div>
-        <Button onClick={() => setIsCreateOpen(true)} type="button">
-          Create project
-        </Button>
-      </section>
+      <MetricGrid blocks={metricBlocks} />
 
-      <section>
+      <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="rounded-3xl bg-panel p-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-black">Project tiles</h2>
-            <span className="rounded-full bg-surface px-3 py-1 text-sm text-muted">
-              {projects.length}
-            </span>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-black">Project tiles</h2>
+              <p className="mt-1 text-sm text-muted">
+                Create one project per backend app. Select a tile to inspect it.
+              </p>
+            </div>
+            <Button onClick={openCreateModal} type="button">
+              Create project
+            </Button>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -247,7 +364,7 @@ export function ProjectsPanel() {
             {!isLoading && projects.length === 0 ? (
               <button
                 className="rounded-3xl border border-dashed border-line bg-panel-strong p-8 text-left transition hover:bg-surface"
-                onClick={() => setIsCreateOpen(true)}
+                onClick={openCreateModal}
                 type="button"
               >
                 <p className="text-lg font-black">No projects yet</p>
@@ -264,15 +381,22 @@ export function ProjectsPanel() {
                 <ProjectCard
                   isSelected={selected}
                   key={project.id}
-                  onCopyApiKey={copyApiKey}
-                  onDeleteProject={deleteProject}
-                  onSelect={setSelectedProjectId}
+                  onSelect={handleSelectProject}
                   project={project}
+                  stats={statsByProjectId.get(project.id) ?? emptyProjectStats}
                 />
               );
             })}
           </div>
         </div>
+
+        <SelectedProjectPanel
+          onCopyApiKey={copyApiKey}
+          onDeleteProject={deleteProject}
+          onOpenCreate={openCreateModal}
+          project={selectedProject}
+          stats={selectedProjectStats}
+        />
       </section>
 
       {isCreateOpen ? (

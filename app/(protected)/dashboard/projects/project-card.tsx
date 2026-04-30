@@ -1,27 +1,35 @@
-import { CopyIcon, TrashIcon } from "../../../../components/icons";
-import { Project } from "./projects-panel";
+import type { Project, ProjectStats } from "./projects-panel";
 
 type ProjectCardProps = {
   isSelected: boolean;
-  onCopyApiKey: (projectId: string) => void;
-  onDeleteProject: (project: Project) => void;
   onSelect: (projectId: string) => void;
   project: Project;
+  stats: ProjectStats;
 };
 
 export function ProjectCard({
   isSelected,
-  onCopyApiKey,
-  onDeleteProject,
   onSelect,
-  project
+  project,
+  stats
 }: ProjectCardProps) {
+  const healthClass =
+    stats.health === "Healthy"
+      ? isSelected
+        ? "bg-primary/20 text-primary-soft"
+        : "bg-primary/15 text-primary-soft"
+      : stats.health === "Has errors"
+        ? "bg-red-500/20 text-red-200"
+        : isSelected
+          ? "bg-surface text-muted"
+          : "bg-surface text-muted";
+
   return (
     <article
-      className={`rounded-3xl p-5 text-left transition ${
+      className={`rounded-3xl border p-5 text-left transition ${
         isSelected
-          ? "bg-primary text-white shadow-xl shadow-primary/20"
-          : "bg-panel-strong text-foreground hover:bg-surface"
+          ? "border-primary/45 bg-panel-strong"
+          : "border-transparent bg-panel-strong hover:border-line hover:bg-surface"
       }`}
     >
       <button
@@ -29,54 +37,41 @@ export function ProjectCard({
         onClick={() => onSelect(project.id)}
         type="button"
       >
-        <h3 className="text-lg font-black">{project.name}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="min-w-0 truncate text-lg font-black">{project.name}</h3>
+          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${healthClass}`}>
+            {stats.health}
+          </span>
+        </div>
         <p
-          className={`mt-2 line-clamp-2 text-sm ${
-            isSelected ? "text-white/75" : "text-muted"
-          }`}
+          className="mt-2 line-clamp-2 text-sm text-muted"
         >
           {project.description || "No description yet."}
         </p>
       </button>
 
       <div className="mt-5 grid gap-3 text-xs md:grid-cols-3">
-        <CardMetric isSelected={isSelected} label="Requests" value="0" />
-        <CardMetric isSelected={isSelected} label="Errors" value="0" />
-        <CardMetric isSelected={isSelected} label="Last status" value="-" />
+        <CardMetric
+          isSelected={isSelected}
+          label="Requests"
+          value={String(stats.requestCount)}
+        />
+        <CardMetric
+          isSelected={isSelected}
+          label="Errors"
+          value={String(stats.errorCount)}
+        />
+        <CardMetric
+          isSelected={isSelected}
+          label="Last status"
+          value={stats.lastStatus ? String(stats.lastStatus) : "-"}
+        />
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">
-        <p className={`text-xs ${isSelected ? "text-white/65" : "text-muted"}`}>
+        <p className="text-xs text-muted">
           Created {new Date(project.createdAt).toLocaleDateString()}
         </p>
-        <div className="flex items-center gap-2">
-          {project.hasApiKey ? (
-            <button
-              aria-label={`Copy API key for ${project.name}`}
-              className={`rounded-xl p-2 transition ${
-                isSelected
-                  ? "bg-white/15 text-white hover:bg-white/25"
-                  : "bg-surface text-muted hover:bg-surface-soft hover:text-foreground"
-              }`}
-              onClick={() => onCopyApiKey(project.id)}
-              type="button"
-            >
-              <CopyIcon className="h-5 w-5" />
-            </button>
-          ) : null}
-          <button
-            aria-label={`Delete ${project.name}`}
-            className={`rounded-xl p-2 transition ${
-              isSelected
-                ? "bg-white/15 text-white hover:bg-red-500/70"
-                : "bg-surface text-muted hover:bg-red-500/15 hover:text-red-200"
-            }`}
-            onClick={() => onDeleteProject(project)}
-            type="button"
-          >
-            <TrashIcon className="h-5 w-5" />
-          </button>
-        </div>
       </div>
     </article>
   );
@@ -93,7 +88,7 @@ function CardMetric({
 }) {
   return (
     <div>
-      <p className={isSelected ? "text-white/60" : "text-muted"}>{label}</p>
+      <p className="text-muted">{label}</p>
       <p className="mt-1 text-base font-black">{value}</p>
     </div>
   );

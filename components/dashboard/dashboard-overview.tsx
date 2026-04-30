@@ -7,6 +7,7 @@ import {
   DataTableColumn
 } from "../ui/data-table";
 import { ButtonLink } from "../ui/button";
+import { MetricGrid } from "../ui/metric-grid";
 
 type RequestLog = {
   id: string;
@@ -140,12 +141,18 @@ export function DashboardOverview() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <MetricCard label="Projects" value={projects.length} />
-        <MetricCard label="Requests today" value={todayLogs.length} />
-        <MetricCard label="Problem calls today" tone="danger" value={todayErrors.length} />
-        <MetricCard label="Avg latency today" value={`${averageLatency} ms`} />
-      </section>
+      <MetricGrid
+        blocks={[
+          { label: "Projects", value: projects.length },
+          { label: "Requests today", value: todayLogs.length },
+          {
+            label: "Problem calls today",
+            tone: "danger",
+            value: todayErrors.length
+          },
+          { label: "Avg latency today", value: `${averageLatency} ms` }
+        ]}
+      />
 
       <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="rounded-3xl bg-panel p-6">
@@ -244,29 +251,6 @@ export function DashboardOverview() {
         </div>
       </section>
     </div>
-  );
-}
-
-function MetricCard({
-  label,
-  tone = "default",
-  value
-}: {
-  label: string;
-  tone?: "danger" | "default";
-  value: number | string;
-}) {
-  return (
-    <article className="rounded-3xl bg-panel p-5">
-      <p className="text-sm text-muted">{label}</p>
-      <p
-        className={`mt-3 text-4xl font-black ${
-          tone === "danger" ? "text-red-300" : "text-foreground"
-        }`}
-      >
-        {value}
-      </p>
-    </article>
   );
 }
 
