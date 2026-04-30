@@ -192,6 +192,26 @@ export function DatabaseIcon({ className }: IconProps) {
   );
 }
 
+export function CopyIcon({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path
+        d="M8.75 8.75h9.5v9.5h-9.5v-9.5Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M5.75 15.25v-9.5h9.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 export function HomeIcon({ className }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">

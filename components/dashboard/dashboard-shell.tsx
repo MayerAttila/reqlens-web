@@ -1,15 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 import { authClient } from "../../lib/auth-client";
 import { DashboardSidebar } from "./dashboard-sidebar";
 
 type DashboardShellProps = {
+  children?: ReactNode;
   initialSidebarCollapsed?: boolean;
 };
 
 export function DashboardShell({
+  children,
   initialSidebarCollapsed = true
 }: DashboardShellProps) {
   const router = useRouter();
@@ -34,39 +36,30 @@ export function DashboardShell({
       <DashboardSidebar initialCollapsed={initialSidebarCollapsed} />
       <section className="min-w-0 flex-1 px-6 py-8 md:px-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
-          <header className="rounded-3xl bg-panel p-6 shadow-2xl shadow-black/20">
-            <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-primary">
-                Reqlens dashboard
-              </p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight">
-                Welcome back{session.user.name ? `, ${session.user.name}` : ""}.
-              </h1>
-              <p className="mt-2 max-w-2xl text-muted">
-                This is the base authenticated dashboard. Next we can add
-                projects, API keys, and request analytics here.
-              </p>
-            </div>
-          </header>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {[
-            ["Projects", "0", "Create a project and generate API keys."],
-            ["Requests", "0", "Ingested API calls will appear here."],
-            ["Errors", "0", "Track failing backend routes."],
-          ].map(([label, value, copy]) => (
-            <article
-              className="rounded-2xl border border-line bg-panel-strong p-5"
-              key={label}
-            >
-              <p className="text-sm text-muted">{label}</p>
-              <p className="mt-3 text-4xl font-black">{value}</p>
-              <p className="mt-3 text-sm text-muted">{copy}</p>
-            </article>
-          ))}
-        </div>
+          {children ?? <DashboardOverview />}
         </div>
       </section>
     </main>
+  );
+}
+
+function DashboardOverview() {
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      {[
+        ["Projects", "0", "Create a project and generate API keys."],
+        ["Requests", "0", "Ingested API calls will appear here."],
+        ["Errors", "0", "Track failing backend routes."]
+      ].map(([label, value, copy]) => (
+        <article
+          className="rounded-2xl border border-line bg-panel-strong p-5"
+          key={label}
+        >
+          <p className="text-sm text-muted">{label}</p>
+          <p className="mt-3 text-4xl font-black">{value}</p>
+          <p className="mt-3 text-sm text-muted">{copy}</p>
+        </article>
+      ))}
+    </div>
   );
 }
