@@ -10,7 +10,6 @@ import {
   ChevronRightIcon,
   DatabaseIcon,
   HomeIcon,
-  KeyIcon,
   LogOutIcon,
   ShieldIcon,
   ZapIcon,
@@ -24,7 +23,6 @@ type SidebarIcon = (props: IconProps) => React.ReactNode;
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: HomeIcon },
   { href: "/dashboard/projects", label: "Projects", icon: DatabaseIcon },
-  { href: "/dashboard/api-keys", label: "API keys", icon: KeyIcon },
   { href: "/dashboard/requests", label: "Requests", icon: ActivityIcon },
   { href: "/dashboard/errors", label: "Errors", icon: AlertIcon }
 ] satisfies Array<{
