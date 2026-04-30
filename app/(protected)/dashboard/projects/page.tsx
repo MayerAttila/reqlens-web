@@ -1,5 +1,5 @@
 import { DashboardPage } from "../../../../components/dashboard/dashboard-page";
-import { ProjectsPanel } from "../../../../components/dashboard/projects-panel";
+import { ProjectsPanel } from "./projects-panel";
 
 export default function ProjectsPage() {
   return (
