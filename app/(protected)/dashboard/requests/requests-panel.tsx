@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import {
+  DataTable,
+  DataTableColumn
+} from "../../../../components/ui/data-table";
 
 type RequestLog = {
   id: string;
@@ -21,6 +25,34 @@ type ProjectLogs = {
 };
 
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
+const requestColumns: Array<DataTableColumn<RequestLog>> = [
+  {
+    header: "Method",
+    render: (log) => <span className="font-black">{log.method}</span>
+  },
+  {
+    className: "min-w-0",
+    header: "Path",
+    render: (log) => <span className="block truncate text-muted">{log.path}</span>
+  },
+  {
+    className: "whitespace-nowrap",
+    header: "Status",
+    render: (log) => <StatusBadge statusCode={log.statusCode} />
+  },
+  {
+    className: "whitespace-nowrap",
+    header: "Latency",
+    render: (log) => <span>{log.durationMs} ms</span>
+  },
+  {
+    className: "whitespace-nowrap",
+    header: "Time",
+    render: (log) => (
+      <span className="text-muted">{new Date(log.createdAt).toLocaleString()}</span>
+    )
+  }
+];
 
 export function RequestsPanel() {
   const [isLoading, setIsLoading] = useState(true);
@@ -124,35 +156,15 @@ export function RequestsPanel() {
             </span>
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-2xl bg-panel-strong">
-            <div className="grid grid-cols-[0.8fr_1.4fr_0.7fr_0.7fr_1fr] gap-3 border-b border-background px-4 py-3 text-xs uppercase tracking-[0.14em] text-muted">
-              <span>Method</span>
-              <span>Path</span>
-              <span>Status</span>
-              <span>Latency</span>
-              <span>Time</span>
-            </div>
-
-            {selectedProject?.logs.length ? (
-              selectedProject.logs.map((log) => (
-                <div
-                  className="grid grid-cols-[0.8fr_1.4fr_0.7fr_0.7fr_1fr] gap-3 px-4 py-3 text-sm text-foreground"
-                  key={log.id}
-                >
-                  <span className="font-black">{log.method}</span>
-                  <span className="truncate text-muted">{log.path}</span>
-                  <StatusBadge statusCode={log.statusCode} />
-                  <span>{log.durationMs} ms</span>
-                  <span className="text-muted">
-                    {new Date(log.createdAt).toLocaleString()}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="p-4 text-sm text-muted">
-                No requests saved for this project yet.
-              </p>
-            )}
+          <div className="mt-6">
+            <DataTable
+              columns={requestColumns}
+              emptyText="No requests saved for this project yet."
+              getRowKey={(log) => log.id}
+              gridTemplateColumns="0.8fr 1.4fr 0.7fr 0.7fr 1fr"
+              items={selectedProject?.logs ?? []}
+              storageKey="reqlens:requests-table-widths"
+            />
           </div>
         </div>
       </section>

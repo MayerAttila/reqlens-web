@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import {
+  DataTable,
+  DataTableColumn
+} from "../../../../components/ui/data-table";
 
 type RequestLog = {
   id: string;
@@ -20,7 +24,48 @@ type ProjectLogs = {
   logs: RequestLog[];
 };
 
+type VisibleErrorLog = RequestLog & {
+  projectName: string;
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
+const errorColumns: Array<DataTableColumn<VisibleErrorLog>> = [
+  {
+    className: "min-w-0",
+    header: "Project",
+    render: (log) => <span className="block truncate font-black">{log.projectName}</span>
+  },
+  {
+    header: "Method",
+    render: (log) => <span className="font-black">{log.method}</span>
+  },
+  {
+    className: "min-w-0",
+    header: "Path",
+    render: (log) => (
+      <span className="block truncate text-muted" title={log.path}>
+        {log.path}
+      </span>
+    )
+  },
+  {
+    className: "whitespace-nowrap",
+    header: "Status",
+    render: (log) => <StatusBadge statusCode={log.statusCode} />
+  },
+  {
+    className: "whitespace-nowrap",
+    header: "Latency",
+    render: (log) => <span>{log.durationMs} ms</span>
+  },
+  {
+    className: "whitespace-nowrap",
+    header: "Time",
+    render: (log) => (
+      <span className="text-muted">{new Date(log.createdAt).toLocaleString()}</span>
+    )
+  }
+];
 
 export function ErrorsPanel() {
   const [isLoading, setIsLoading] = useState(true);
@@ -127,41 +172,17 @@ export function ErrorsPanel() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-3xl bg-panel">
-        <div className="grid grid-cols-[0.9fr_0.8fr_1.5fr_0.7fr_0.7fr_1fr] gap-3 border-b border-background px-5 py-4 text-xs uppercase tracking-[0.14em] text-muted">
-          <span>Project</span>
-          <span>Method</span>
-          <span>Path</span>
-          <span>Status</span>
-          <span>Latency</span>
-          <span>Time</span>
-        </div>
-
-        {isLoading ? <p className="p-5 text-sm text-muted">Loading errors...</p> : null}
-
-        {!isLoading && visibleLogs.length === 0 ? (
-          <p className="p-5 text-sm text-muted">
-            No problematic calls saved yet.
-          </p>
-        ) : null}
-
-        {visibleLogs.map((log) => (
-          <div
-            className="grid grid-cols-[0.9fr_0.8fr_1.5fr_0.7fr_0.7fr_1fr] gap-3 border-b border-background/70 px-5 py-4 text-sm text-foreground last:border-b-0"
-            key={log.id}
-          >
-            <span className="truncate font-black">{log.projectName}</span>
-            <span className="font-black">{log.method}</span>
-            <span className="truncate text-muted" title={log.path}>
-              {log.path}
-            </span>
-            <StatusBadge statusCode={log.statusCode} />
-            <span>{log.durationMs} ms</span>
-            <span className="text-muted">
-              {new Date(log.createdAt).toLocaleString()}
-            </span>
-          </div>
-        ))}
+      <section className="rounded-3xl bg-panel p-6">
+        <DataTable
+          columns={errorColumns}
+          emptyText="No problematic calls saved yet."
+          getRowKey={(log) => log.id}
+          gridTemplateColumns="0.9fr 0.8fr 1.5fr 0.7fr 0.7fr 1fr"
+          isLoading={isLoading}
+          items={visibleLogs}
+          loadingText="Loading errors..."
+          storageKey="reqlens:errors-table-widths"
+        />
       </section>
     </div>
   );
