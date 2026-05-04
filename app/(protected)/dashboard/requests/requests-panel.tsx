@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import {
   DataTable,
   DataTableColumn
 } from "../../../../components/ui/data-table";
+import { SearchInput } from "../../../../components/ui/search-input";
 
 type RequestLog = {
   id: string;
@@ -24,8 +25,17 @@ type ProjectLogs = {
   logs: RequestLog[];
 };
 
+type VisibleRequestLog = RequestLog & {
+  projectName: string;
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
-const requestColumns: Array<DataTableColumn<RequestLog>> = [
+const requestColumns: Array<DataTableColumn<VisibleRequestLog>> = [
+  {
+    className: "min-w-0",
+    header: "Project",
+    render: (log) => <span className="block truncate font-black">{log.projectName}</span>
+  },
   {
     header: "Method",
     render: (log) => <span className="font-black">{log.method}</span>
@@ -57,10 +67,62 @@ const requestColumns: Array<DataTableColumn<RequestLog>> = [
 export function RequestsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectLogs[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [requestSearch, setRequestSearch] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("all");
 
-  const selectedProject =
-    projects.find((project) => project.projectId === selectedProjectId) ?? projects[0];
+  const selectedProjects = useMemo(() => {
+    if (selectedProjectId === "all") {
+      return projects;
+    }
+
+    return projects.filter((project) => project.projectId === selectedProjectId);
+  }, [projects, selectedProjectId]);
+
+  const visibleLogs = useMemo(
+    () =>
+      selectedProjects
+        .flatMap((project) =>
+          project.logs.map((log) => ({
+            ...log,
+            projectName: project.projectName
+          }))
+        )
+        .sort(
+          (first, second) =>
+            new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+        ),
+    [selectedProjects]
+  );
+  const filteredLogs = useMemo(
+    () =>
+      filterRows(
+        visibleLogs,
+        requestSearch,
+        (log) =>
+          `${log.projectName} ${log.method} ${log.path} ${log.statusCode} ${log.durationMs}`
+      ),
+    [requestSearch, visibleLogs]
+  );
+  const totalRequests = projects.reduce(
+    (count, project) => count + project.logs.length,
+    0
+  );
+  const successfulRequests = projects.reduce(
+    (count, project) =>
+      count + project.logs.filter((log) => log.statusCode < 400).length,
+    0
+  );
+  const problemRequests = totalRequests - successfulRequests;
+  const averageLatency = totalRequests
+    ? Math.round(
+        projects.reduce(
+          (total, project) =>
+            total +
+            project.logs.reduce((projectTotal, log) => projectTotal + log.durationMs, 0),
+          0
+        ) / totalRequests
+      )
+    : 0;
 
   useEffect(() => {
     void loadLogs();
@@ -78,7 +140,6 @@ export function RequestsPanel() {
 
       const data = (await response.json()) as { projects: ProjectLogs[] };
       setProjects(data.projects);
-      setSelectedProjectId((current) => current || data.projects[0]?.projectId || "");
     } catch {
       toast.error("Could not load logs.");
     } finally {
@@ -88,87 +149,93 @@ export function RequestsPanel() {
 
   return (
     <div className="grid gap-6">
-      <section className="rounded-3xl bg-panel p-6 shadow-2xl shadow-black/20">
-        <p className="text-sm uppercase tracking-[0.22em] text-primary">
-          Requests
-        </p>
-        <h2 className="mt-2 text-3xl font-black">Requests by project</h2>
-        <p className="mt-2 max-w-2xl text-sm text-muted">
-          Saved API request logs grouped by project. Since each project owns one
-          API key, this shows the traffic received through each key.
-        </p>
+      <section className="grid gap-4 md:grid-cols-4">
+        <SummaryCard label="Requests" value={totalRequests} />
+        <SummaryCard label="Successful" value={successfulRequests} />
+        <SummaryCard label="Problem calls" tone="danger" value={problemRequests} />
+        <SummaryCard label="Avg latency" value={`${averageLatency} ms`} />
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[0.32fr_1fr]">
-        <aside className="rounded-3xl bg-panel p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-black">Projects</h3>
-            <span className="rounded-full bg-surface px-3 py-1 text-sm text-muted">
-              {projects.length}
-            </span>
-          </div>
-
-          <div className="grid gap-2">
-            {isLoading ? <p className="text-sm text-muted">Loading...</p> : null}
-            {!isLoading && projects.length === 0 ? (
-              <p className="rounded-2xl bg-panel-strong p-4 text-sm text-muted">
-                No projects yet.
-              </p>
-            ) : null}
-            {projects.map((project) => (
-              <button
-                className={`rounded-2xl p-4 text-left transition ${
-                  project.projectId === selectedProject?.projectId
-                    ? "bg-primary text-white"
-                    : "bg-panel-strong text-foreground hover:bg-surface"
-                }`}
-                key={project.projectId}
-                onClick={() => setSelectedProjectId(project.projectId)}
-                type="button"
-              >
-                <p className="font-black">{project.projectName}</p>
-                <p
-                  className={`mt-1 text-xs ${
-                    project.projectId === selectedProject?.projectId
-                      ? "text-white/70"
-                      : "text-muted"
-                  }`}
-                >
-                  {project.logs.length} request{project.logs.length === 1 ? "" : "s"}
-                </p>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <div className="rounded-3xl bg-panel p-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-2xl font-black">
-                {selectedProject?.projectName ?? "No project selected"}
-              </h3>
-              <p className="mt-1 text-sm text-muted">
-                Latest 100 saved requests for this project.
-              </p>
-            </div>
-            <span className="rounded-full bg-surface px-3 py-1 text-sm text-muted">
-              {selectedProject?.hasApiKey ? "API key active" : "No API key"}
-            </span>
-          </div>
-
-          <div className="mt-6">
-            <DataTable
-              columns={requestColumns}
-              emptyText="No requests saved for this project yet."
-              getRowKey={(log) => log.id}
-              gridTemplateColumns="0.8fr 1.4fr 0.7fr 0.7fr 1fr"
-              items={selectedProject?.logs ?? []}
-              storageKey="reqlens:requests-table-widths"
-            />
-          </div>
+      <section className="rounded-3xl bg-panel p-6">
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <label className="grid gap-2 text-sm text-muted">
+            <span className="sr-only">Project filter</span>
+            <select
+              className="rounded-2xl bg-panel-strong px-4 py-3 text-foreground outline-none ring-1 ring-line transition focus:ring-primary/60"
+              onChange={(event) => setSelectedProjectId(event.target.value)}
+              value={selectedProjectId}
+            >
+              <option value="all">All projects</option>
+              {projects.map((project) => (
+                <option key={project.projectId} value={project.projectId}>
+                  {project.projectName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <SearchInput
+            className="w-full lg:max-w-sm"
+            onChange={(event) => setRequestSearch(event.target.value)}
+            onClear={() => setRequestSearch("")}
+            placeholder="Search requests..."
+            value={requestSearch}
+          />
         </div>
+        <DataTable
+          columns={requestColumns}
+          emptyText={
+            requestSearch
+              ? "No matching rows found."
+              : "No requests saved yet."
+          }
+          getRowKey={(log) => log.id}
+          gridTemplateColumns="0.9fr 0.8fr 1.5fr 0.7fr 0.7fr 1fr"
+          isLoading={isLoading}
+          items={filteredLogs}
+          loadingText="Loading requests..."
+          storageKey="reqlens:requests-table-widths"
+        />
       </section>
     </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  tone = "default",
+  value
+}: {
+  label: string;
+  tone?: "danger" | "default";
+  value: number | string;
+}) {
+  return (
+    <div className="rounded-3xl bg-panel p-5">
+      <p className="text-sm text-muted">{label}</p>
+      <p
+        className={`mt-2 text-4xl font-black ${
+          tone === "danger" ? "text-red-300" : "text-foreground"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function filterRows<TItem>(
+  items: TItem[],
+  query: string,
+  getSearchText: (item: TItem) => string
+) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    getSearchText(item).toLowerCase().includes(normalizedQuery)
   );
 }
 

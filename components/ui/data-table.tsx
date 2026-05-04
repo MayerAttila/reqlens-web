@@ -17,8 +17,11 @@ type DataTableProps<TItem> = {
   isLoading?: boolean;
   items: TItem[];
   loadingText?: string;
+  pageSizeOptions?: number[];
   storageKey?: string;
 };
+
+const defaultPageSizeOptions = [20, 50, 100];
 
 export function DataTable<TItem>({
   columns,
@@ -28,6 +31,7 @@ export function DataTable<TItem>({
   isLoading = false,
   items,
   loadingText = "Loading...",
+  pageSizeOptions = defaultPageSizeOptions,
   storageKey
 }: DataTableProps<TItem>) {
   const tableRef = useRef<HTMLDivElement>(null);
@@ -37,18 +41,21 @@ export function DataTable<TItem>({
     startWidths: number[];
   } | null>(null);
   const [columnWidths, setColumnWidths] = useState<number[] | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 10);
 
   const activeGridTemplateColumns = columnWidths
     ? columnWidths.map((width) => `${width}px`).join(" ")
     : gridTemplateColumns;
-  const tableWidth = columnWidths
-    ? columnWidths.reduce((total, width) => total + width, 0)
-    : undefined;
 
   const minWidths = useMemo(
     () => columns.map((column) => column.minWidth ?? 72),
     [columns]
   );
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const visibleItems = items.slice((page - 1) * pageSize, page * pageSize);
+  const pageStart = items.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const pageEnd = Math.min(page * pageSize, items.length);
 
   useEffect(() => {
     if (!storageKey) {
@@ -57,20 +64,38 @@ export function DataTable<TItem>({
 
     const savedWidths = readSavedWidths(storageKey, columns.length);
 
+    const availableWidth = getAvailableTableWidth(tableRef.current, columns.length);
+
     if (savedWidths) {
-      setColumnWidths(savedWidths);
+      setColumnWidths(clampWidths(savedWidths, minWidths, availableWidth));
       return;
     }
 
     const initializeWidths = () => {
-      const tableWidth = tableRef.current?.getBoundingClientRect().width ?? 0;
       setColumnWidths(
-        parseInitialWidths(gridTemplateColumns, columns.length, tableWidth, minWidths)
+        parseInitialWidths(
+          gridTemplateColumns,
+          columns.length,
+          getAvailableTableWidth(tableRef.current, columns.length),
+          minWidths
+        )
       );
     };
 
     initializeWidths();
   }, [columns.length, gridTemplateColumns, minWidths, storageKey]);
+
+  useEffect(() => {
+    if (!storageKey) {
+      return;
+    }
+
+    const savedPageSize = readSavedPageSize(storageKey, pageSizeOptions);
+
+    if (savedPageSize) {
+      setPageSize((current) => (current === savedPageSize ? current : savedPageSize));
+    }
+  }, [pageSizeOptions, storageKey]);
 
   useEffect(() => {
     if (!storageKey || !columnWidths) {
@@ -79,6 +104,22 @@ export function DataTable<TItem>({
 
     window.localStorage.setItem(storageKey, JSON.stringify(columnWidths));
   }, [columnWidths, storageKey]);
+
+  useEffect(() => {
+    if (!storageKey) {
+      return;
+    }
+
+    window.localStorage.setItem(`${storageKey}:page-size`, String(pageSize));
+  }, [pageSize, storageKey]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [items, pageSize]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   useEffect(() => {
     function handlePointerMove(event: globalThis.PointerEvent) {
@@ -135,7 +176,7 @@ export function DataTable<TItem>({
       parseInitialWidths(
         gridTemplateColumns,
         columns.length,
-        tableRef.current?.getBoundingClientRect().width ?? 0,
+        getAvailableTableWidth(tableRef.current, columns.length),
         minWidths
       );
 
@@ -151,8 +192,8 @@ export function DataTable<TItem>({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl bg-panel-strong" ref={tableRef}>
-      <div style={tableWidth ? { minWidth: tableWidth } : undefined}>
+    <div className="overflow-hidden rounded-2xl bg-panel-strong" ref={tableRef}>
+      <div>
         <div
           className="grid gap-3 border-b border-background px-4 py-3 text-xs uppercase tracking-[0.14em] text-muted"
           style={{ gridTemplateColumns: activeGridTemplateColumns }}
@@ -183,7 +224,7 @@ export function DataTable<TItem>({
           <p className="p-4 text-sm text-muted">{emptyText}</p>
         ) : null}
 
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <div
             className="grid gap-3 border-b border-background/70 px-4 py-3 text-sm text-foreground last:border-b-0"
             key={getRowKey(item)}
@@ -197,6 +238,53 @@ export function DataTable<TItem>({
           </div>
         ))}
       </div>
+      {!isLoading && items.length > 0 ? (
+        <div className="flex flex-col gap-3 border-t border-background px-4 py-3 text-sm text-muted md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2">
+            <span>Rows</span>
+            <select
+              className="h-9 rounded-xl bg-surface px-2 text-sm text-foreground outline-none ring-1 ring-line transition focus:ring-primary/60"
+              onChange={(event) => setPageSize(Number(event.target.value))}
+              value={pageSize}
+            >
+              {pageSizeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span>
+              {pageStart}-{pageEnd} of {items.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                className="h-9 rounded-xl bg-surface px-3 text-foreground transition hover:bg-surface-soft disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                type="button"
+              >
+                Prev
+              </button>
+              <span className="min-w-16 text-center">
+                {page} / {totalPages}
+              </span>
+              <button
+                className="h-9 rounded-xl bg-surface px-3 text-foreground transition hover:bg-surface-soft disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={page >= totalPages}
+                onClick={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
+                type="button"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -223,6 +311,53 @@ function readSavedWidths(storageKey: string, columnCount: number): number[] | nu
   } catch {
     return null;
   }
+}
+
+function readSavedPageSize(
+  storageKey: string,
+  pageSizeOptions: number[]
+): number | null {
+  const savedValue = window.localStorage.getItem(`${storageKey}:page-size`);
+
+  if (!savedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(savedValue);
+  return pageSizeOptions.includes(parsedValue) ? parsedValue : null;
+}
+
+function getAvailableTableWidth(element: HTMLDivElement | null, columnCount: number) {
+  const tableWidth = element?.getBoundingClientRect().width ?? 0;
+  const horizontalPadding = 32;
+  const totalGridGap = Math.max(0, columnCount - 1) * 12;
+
+  return Math.max(0, tableWidth - horizontalPadding - totalGridGap);
+}
+
+function clampWidths(widths: number[], minWidths: number[], availableWidth: number) {
+  const minTotal = minWidths.reduce((total, width) => total + width, 0);
+  const currentTotal = widths.reduce((total, width) => total + width, 0);
+
+  if (availableWidth <= 0 || currentTotal <= availableWidth) {
+    return widths.map((width, index) => Math.max(minWidths[index], width));
+  }
+
+  if (availableWidth <= minTotal) {
+    return minWidths;
+  }
+
+  const extraWidth = availableWidth - minTotal;
+  const currentExtraWidth = widths.reduce(
+    (total, width, index) => total + Math.max(0, width - minWidths[index]),
+    0
+  );
+
+  return widths.map((width, index) => {
+    const extra = Math.max(0, width - minWidths[index]);
+    const scaledExtra = currentExtraWidth > 0 ? (extra / currentExtraWidth) * extraWidth : 0;
+    return minWidths[index] + scaledExtra;
+  });
 }
 
 function parseInitialWidths(

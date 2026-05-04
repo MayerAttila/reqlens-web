@@ -6,6 +6,7 @@ import {
   DataTable,
   DataTableColumn
 } from "../../../../components/ui/data-table";
+import { SearchInput } from "../../../../components/ui/search-input";
 
 type RequestLog = {
   id: string;
@@ -70,6 +71,7 @@ const errorColumns: Array<DataTableColumn<VisibleErrorLog>> = [
 export function ErrorsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectLogs[]>([]);
+  const [errorSearch, setErrorSearch] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("all");
 
   const selectedProjects = useMemo(() => {
@@ -96,6 +98,16 @@ export function ErrorsPanel() {
             new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
         ),
     [selectedProjects]
+  );
+  const filteredVisibleLogs = useMemo(
+    () =>
+      filterRows(
+        visibleLogs,
+        errorSearch,
+        (log) =>
+          `${log.projectName} ${log.method} ${log.path} ${log.statusCode} ${log.durationMs}`
+      ),
+    [errorSearch, visibleLogs]
   );
 
   const totalErrors = projects.reduce(
@@ -141,21 +153,10 @@ export function ErrorsPanel() {
         <SummaryCard label="Server errors" value={serverErrors} tone="danger" />
       </section>
 
-      <section className="rounded-3xl bg-panel p-6 shadow-2xl shadow-black/20">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.22em] text-primary">
-              Errors
-            </p>
-            <h2 className="mt-2 text-3xl font-black">Problematic calls</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted">
-              Failed or suspicious API calls from your connected projects. This
-              view only includes responses with status 400 and above.
-            </p>
-          </div>
-
+      <section className="rounded-3xl bg-panel p-6">
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <label className="grid gap-2 text-sm text-muted">
-            Project filter
+            <span className="sr-only">Project filter</span>
             <select
               className="rounded-2xl bg-panel-strong px-4 py-3 text-foreground outline-none ring-1 ring-line transition focus:ring-primary/60"
               onChange={(event) => setSelectedProjectId(event.target.value)}
@@ -169,22 +170,46 @@ export function ErrorsPanel() {
               ))}
             </select>
           </label>
+          <SearchInput
+            className="w-full lg:max-w-sm"
+            onChange={(event) => setErrorSearch(event.target.value)}
+            onClear={() => setErrorSearch("")}
+            placeholder="Search problematic calls..."
+            value={errorSearch}
+          />
         </div>
-      </section>
-
-      <section className="rounded-3xl bg-panel p-6">
         <DataTable
           columns={errorColumns}
-          emptyText="No problematic calls saved yet."
+          emptyText={
+            errorSearch
+              ? "No matching rows found."
+              : "No problematic calls saved yet."
+          }
           getRowKey={(log) => log.id}
           gridTemplateColumns="0.9fr 0.8fr 1.5fr 0.7fr 0.7fr 1fr"
           isLoading={isLoading}
-          items={visibleLogs}
+          items={filteredVisibleLogs}
           loadingText="Loading errors..."
           storageKey="reqlens:errors-table-widths"
         />
       </section>
     </div>
+  );
+}
+
+function filterRows<TItem>(
+  items: TItem[],
+  query: string,
+  getSearchText: (item: TItem) => string
+) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    getSearchText(item).toLowerCase().includes(normalizedQuery)
   );
 }
 

@@ -8,6 +8,7 @@ import {
 } from "../ui/data-table";
 import { ButtonLink } from "../ui/button";
 import { MetricGrid } from "../ui/metric-grid";
+import { SearchInput } from "../ui/search-input";
 
 type RequestLog = {
   id: string;
@@ -63,6 +64,7 @@ const recentRequestColumns: Array<DataTableColumn<RecentRequest>> = [
 export function DashboardOverview() {
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectLogs[]>([]);
+  const [recentSearch, setRecentSearch] = useState("");
 
   useEffect(() => {
     void loadLogs();
@@ -106,6 +108,15 @@ export function DashboardOverview() {
         )
         .slice(0, 10),
     [allLogs]
+  );
+  const filteredRecentRequests = useMemo(
+    () =>
+      filterRows(
+        recentRequests,
+        recentSearch,
+        (log) => `${log.projectName} ${log.method} ${log.path} ${log.statusCode}`
+      ),
+    [recentRequests, recentSearch]
   );
   const todayLogs = allLogs.filter((log) => isToday(log.createdAt));
   const todayErrors = todayLogs.filter((log) => log.statusCode >= 400);
@@ -156,25 +167,35 @@ export function DashboardOverview() {
 
       <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="rounded-3xl bg-panel p-6">
-          <div className="mb-5 flex items-center justify-between gap-4">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-2xl font-black">Recent requests</h2>
               <p className="mt-1 text-sm text-muted">
-                Latest 10 requests across all projects.
+                {recentSearch
+                  ? `${filteredRecentRequests.length} matching request${
+                      filteredRecentRequests.length === 1 ? "" : "s"
+                    } across all projects.`
+                  : `Latest ${recentRequests.length} request${
+                      recentRequests.length === 1 ? "" : "s"
+                    } across all projects.`}
               </p>
             </div>
-            <ButtonLink href="/dashboard/requests" variant="secondary">
-              View all
-            </ButtonLink>
+            <SearchInput
+              className="w-full lg:max-w-sm"
+              onChange={(event) => setRecentSearch(event.target.value)}
+              onClear={() => setRecentSearch("")}
+              placeholder="Search recent requests..."
+              value={recentSearch}
+            />
           </div>
 
           <DataTable
             columns={recentRequestColumns}
-            emptyText="No requests saved yet."
+            emptyText={recentSearch ? "No matching rows found." : "No requests saved yet."}
             getRowKey={(log) => log.id}
             gridTemplateColumns="1fr 0.7fr 1.4fr 0.7fr 1.2fr"
             isLoading={isLoading}
-            items={recentRequests}
+            items={filteredRecentRequests}
             loadingText="Loading requests..."
             storageKey="reqlens:dashboard-recent-table-widths"
           />
@@ -362,4 +383,20 @@ function formatShortTime(dateValue: string) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function filterRows<TItem>(
+  items: TItem[],
+  query: string,
+  getSearchText: (item: TItem) => string
+) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    getSearchText(item).toLowerCase().includes(normalizedQuery)
+  );
 }
