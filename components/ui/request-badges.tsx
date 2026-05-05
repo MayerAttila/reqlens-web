@@ -1,0 +1,35 @@
+export const slowRequestThresholdMs = 750;
+
+export function isSlowRequest(durationMs: number) {
+  return durationMs >= slowRequestThresholdMs;
+}
+
+export function StatusBadge({ statusCode }: { statusCode: number }) {
+  const className =
+    statusCode >= 500
+      ? "bg-red-500/15 text-red-300"
+      : statusCode >= 400
+        ? "bg-yellow-500/15 text-yellow-200"
+        : "bg-primary/15 text-primary-soft";
+
+  return (
+    <span className={`w-fit rounded-full px-3 py-1 text-xs font-black ${className}`}>
+      {statusCode}
+    </span>
+  );
+}
+
+export function LatencyBadge({ durationMs }: { durationMs: number }) {
+  const slow = isSlowRequest(durationMs);
+
+  return (
+    <span
+      className={`w-fit rounded-full px-3 py-1 text-xs font-black ${
+        slow ? "bg-orange-500/15 text-orange-200" : "bg-surface text-foreground"
+      }`}
+      title={slow ? `Slow request: ${durationMs} ms` : `${durationMs} ms`}
+    >
+      {durationMs} ms{slow ? " slow" : ""}
+    </span>
+  );
+}
