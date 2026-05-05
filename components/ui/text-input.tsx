@@ -2,13 +2,13 @@
 
 import { InputHTMLAttributes, ReactNode, useMemo, useState } from "react";
 import {
-  EmailIcon,
-  EyeIcon,
-  EyeOffIcon,
-  LockIcon,
-  TextIcon,
-  UserIcon
-} from "../icons";
+  FiEye,
+  FiEyeOff,
+  FiLock,
+  FiMail,
+  FiType,
+  FiUser
+} from "react-icons/fi";
 
 type TextInputProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
@@ -32,7 +32,7 @@ export function TextInput({
     <label className="grid gap-2">
       {label ? <span className="text-sm text-muted">{label}</span> : null}
       <span className="group flex items-center gap-3 border-b border-line py-3 transition focus-within:border-primary">
-        <span className="grid size-5 place-items-center text-muted transition group-focus-within:text-primary">
+        <span className="grid size-4 place-items-center text-muted transition group-focus-within:text-primary">
           {renderIcon(iconType)}
         </span>
         <input
@@ -48,7 +48,7 @@ export function TextInput({
             onClick={() => setShowPassword((current) => !current)}
             type="button"
           >
-            {showPassword ? <EyeOffIcon className="size-5" /> : <EyeIcon className="size-5" />}
+            {showPassword ? <FiEyeOff className="size-4" /> : <FiEye className="size-4" />}
           </button>
         ) : null}
       </span>
@@ -78,16 +78,16 @@ function inferIcon(
 }
 
 function renderIcon(icon: TextInputProps["icon"]): ReactNode {
-  const className = "size-5";
+  const className = "size-4";
 
   switch (icon) {
     case "email":
-      return <EmailIcon className={className} />;
+      return <FiMail className={className} />;
     case "name":
-      return <UserIcon className={className} />;
+      return <FiUser className={className} />;
     case "password":
-      return <LockIcon className={className} />;
+      return <FiLock className={className} />;
     default:
-      return <TextIcon className={className} />;
+      return <FiType className={className} />;
   }
 }

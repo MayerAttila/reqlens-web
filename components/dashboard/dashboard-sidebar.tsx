@@ -4,27 +4,27 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
-  ActivityIcon,
-  AlertIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  DatabaseIcon,
-  HomeIcon,
-  LogOutIcon,
-  ShieldIcon,
-  ZapIcon,
-  type IconProps
-} from "../icons";
+  FiActivity,
+  FiAlertTriangle,
+  FiChevronLeft,
+  FiChevronRight,
+  FiDatabase,
+  FiHome,
+  FiLogOut,
+  FiSettings,
+  FiShield
+} from "react-icons/fi";
+import { IconType } from "react-icons";
 import { toast } from "react-toastify";
 import { authClient } from "../../lib/auth-client";
 
-type SidebarIcon = (props: IconProps) => React.ReactNode;
+type SidebarIcon = IconType;
 
 const navItems = [
-  { href: "/dashboard", label: "Overview", icon: HomeIcon },
-  { href: "/dashboard/projects", label: "Projects", icon: DatabaseIcon },
-  { href: "/dashboard/requests", label: "Requests", icon: ActivityIcon },
-  { href: "/dashboard/errors", label: "Errors", icon: AlertIcon }
+  { href: "/dashboard", label: "Overview", icon: FiHome },
+  { href: "/dashboard/projects", label: "Projects", icon: FiDatabase },
+  { href: "/dashboard/requests", label: "Requests", icon: FiActivity },
+  { href: "/dashboard/errors", label: "Errors", icon: FiAlertTriangle }
 ] satisfies Array<{
   href: string;
   label: string;
@@ -97,7 +97,7 @@ export function DashboardSidebar({
           onClick={() => setMobileOpen(true)}
           className="fixed left-4 top-4 z-[60] rounded-xl bg-panel p-2 text-foreground shadow-xl shadow-black/30 md:hidden"
         >
-          <ChevronRightIcon className="h-6 w-6" />
+          <FiChevronRight className="h-5 w-5" />
         </button>
       ) : null}
 
@@ -122,7 +122,7 @@ export function DashboardSidebar({
             }`}
           >
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary-soft">
-              <ShieldIcon className="h-6 w-6" />
+              <FiShield className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs uppercase tracking-[0.22em] text-muted">
@@ -141,9 +141,9 @@ export function DashboardSidebar({
             className="hidden rounded-xl bg-surface p-2 text-muted transition hover:bg-surface-soft hover:text-foreground md:inline-flex"
           >
             {collapsed ? (
-              <ChevronRightIcon className="h-6 w-6" />
+              <FiChevronRight className="h-5 w-5" />
             ) : (
-              <ChevronLeftIcon className="h-6 w-6" />
+              <FiChevronLeft className="h-5 w-5" />
             )}
           </button>
 
@@ -153,7 +153,7 @@ export function DashboardSidebar({
             onClick={() => setMobileOpen(false)}
             className="rounded-xl bg-surface p-2 text-muted transition hover:bg-surface-soft hover:text-foreground md:hidden"
           >
-            <ChevronLeftIcon className="h-6 w-6" />
+            <FiChevronLeft className="h-5 w-5" />
           </button>
         </div>
 
@@ -177,7 +177,7 @@ export function DashboardSidebar({
                     : "text-muted hover:bg-surface hover:text-foreground"
                 } ${collapsed && !mobileOpen ? "justify-center" : ""}`}
               >
-                <Icon className="h-6 w-6 shrink-0" />
+                <Icon className="h-5 w-5 shrink-0" />
                 {showLabels ? (
                   <span className="whitespace-nowrap">{item.label}</span>
                 ) : null}
@@ -187,16 +187,20 @@ export function DashboardSidebar({
         </nav>
 
         <div className="space-y-3 px-3 py-4">
-          <div className="rounded-2xl bg-surface p-3">
-            <div className="flex items-start gap-3">
-              <ZapIcon className="mt-0.5 h-5 w-5 shrink-0 text-primary-soft" />
-              {showLabels ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  Generate API keys, watch traffic, and catch backend failures.
-                </p>
-              ) : null}
-            </div>
-          </div>
+          <Link
+            href="/dashboard/settings"
+            title="Settings"
+            aria-label="Settings"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold transition ${
+              activePath === "/dashboard/settings"
+                ? "bg-primary text-white shadow-lg shadow-primary/20"
+                : "bg-surface text-muted hover:bg-surface-soft hover:text-foreground"
+            } ${collapsed && !mobileOpen ? "justify-center" : ""}`}
+          >
+            <FiSettings className="h-5 w-5 shrink-0" />
+            {showLabels ? <span className="whitespace-nowrap">Settings</span> : null}
+          </Link>
 
           <button
             type="button"
@@ -207,7 +211,7 @@ export function DashboardSidebar({
               collapsed && !mobileOpen ? "justify-center" : ""
             }`}
           >
-            <LogOutIcon className="h-6 w-6 shrink-0" />
+            <FiLogOut className="h-5 w-5 shrink-0" />
             {showLabels ? <span className="whitespace-nowrap">Sign out</span> : null}
           </button>
         </div>

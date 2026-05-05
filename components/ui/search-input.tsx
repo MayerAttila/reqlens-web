@@ -1,7 +1,7 @@
 "use client";
 
 import { InputHTMLAttributes } from "react";
-import { SearchIcon } from "../icons";
+import { FiSearch } from "react-icons/fi";
 
 type SearchInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   onClear?: () => void;
@@ -17,7 +17,7 @@ export function SearchInput({
 
   return (
     <div className={`flex items-center gap-3 rounded-2xl bg-surface px-3 py-2 ring-1 ring-line transition focus-within:ring-primary/60 ${className}`}>
-      <SearchIcon className="size-5 shrink-0 text-muted" />
+      <FiSearch className="size-4 shrink-0 text-muted" />
       <input
         className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
         type="text"
