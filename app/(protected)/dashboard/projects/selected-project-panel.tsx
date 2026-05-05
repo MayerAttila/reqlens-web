@@ -42,6 +42,7 @@ export function SelectedProjectPanel({
 
       <div className="mt-6 grid grid-cols-2 gap-3">
         <DetailStat label="Requests" value={stats.requestCount} />
+        <DetailStat label="Latency alerts" tone="warning" value={stats.slowCount} />
         <DetailStat label="Errors" tone="danger" value={stats.errorCount} />
         <DetailStat label="Last status" value={stats.lastStatus ?? "-"} />
         <DetailStat
@@ -74,7 +75,7 @@ function DetailStat({
   value
 }: {
   label: string;
-  tone?: "danger" | "default";
+  tone?: "danger" | "default" | "warning";
   value: number | string;
 }) {
   return (
@@ -82,7 +83,11 @@ function DetailStat({
       <p className="text-xs text-muted">{label}</p>
       <p
         className={`mt-2 text-2xl font-black ${
-          tone === "danger" ? "text-red-300" : "text-foreground"
+          tone === "danger"
+            ? "text-red-300"
+            : tone === "warning"
+              ? "text-orange-200"
+              : "text-foreground"
         }`}
       >
         {value}

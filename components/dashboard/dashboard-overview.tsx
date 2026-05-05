@@ -8,6 +8,12 @@ import {
 } from "../ui/data-table";
 import { ButtonLink } from "../ui/button";
 import { MetricGrid } from "../ui/metric-grid";
+import {
+  isSlowRequest,
+  LatencyBadge,
+  slowRequestThresholdMs,
+  StatusBadge
+} from "../ui/request-badges";
 import { SearchInput } from "../ui/search-input";
 
 type RequestLog = {
@@ -51,6 +57,11 @@ const recentRequestColumns: Array<DataTableColumn<RecentRequest>> = [
     className: "whitespace-nowrap",
     header: "Status",
     render: (log) => <StatusBadge statusCode={log.statusCode} />
+  },
+  {
+    className: "whitespace-nowrap",
+    header: "Latency",
+    render: (log) => <LatencyBadge durationMs={log.durationMs} />
   },
   {
     className: "whitespace-nowrap",
@@ -120,6 +131,9 @@ export function DashboardOverview() {
   );
   const todayLogs = allLogs.filter((log) => isToday(log.createdAt));
   const todayErrors = todayLogs.filter((log) => log.statusCode >= 400);
+  const todaySlowRequests = todayLogs.filter((log) =>
+    isSlowRequest(log.durationMs)
+  );
   const averageLatency = todayLogs.length
     ? Math.round(
         todayLogs.reduce((total, log) => total + log.durationMs, 0) /
@@ -128,6 +142,9 @@ export function DashboardOverview() {
     : 0;
   const latestErrors = recentRequests
     .filter((log) => log.statusCode >= 400)
+    .slice(0, 5);
+  const latestSlowRequests = recentRequests
+    .filter((log) => isSlowRequest(log.durationMs))
     .slice(0, 5);
   const clientErrors = latestErrors.filter(
     (log) => log.statusCode >= 400 && log.statusCode < 500
@@ -161,7 +178,12 @@ export function DashboardOverview() {
             tone: "danger",
             value: todayErrors.length
           },
-          { label: "Avg latency today", value: `${averageLatency} ms` }
+          {
+            helperText: `Avg ${averageLatency} ms · ${slowRequestThresholdMs} ms alert threshold`,
+            label: "Latency alerts today",
+            tone: todaySlowRequests.length ? "danger" : "default",
+            value: todaySlowRequests.length
+          }
         ]}
       />
 
@@ -193,7 +215,7 @@ export function DashboardOverview() {
             columns={recentRequestColumns}
             emptyText={recentSearch ? "No matching rows found." : "No requests saved yet."}
             getRowKey={(log) => log.id}
-            gridTemplateColumns="1fr 0.7fr 1.4fr 0.7fr 1.2fr"
+            gridTemplateColumns="1fr 0.7fr 1.4fr 0.7fr 0.8fr 1.2fr"
             isLoading={isLoading}
             items={filteredRecentRequests}
             loadingText="Loading requests..."
@@ -202,6 +224,36 @@ export function DashboardOverview() {
         </div>
 
         <div className="grid min-w-0 gap-6">
+          <section className="rounded-3xl bg-panel p-6">
+            <h2 className="text-2xl font-black">Latency snapshot</h2>
+            <p className="mt-1 text-sm text-muted">
+              Latest calls at {slowRequestThresholdMs} ms or higher.
+            </p>
+
+            <div className="mt-5 grid gap-2">
+              {latestSlowRequests.length ? (
+                latestSlowRequests.map((log) => (
+                  <div
+                    className="rounded-2xl bg-panel-strong p-3 text-sm"
+                    key={log.id}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate font-black">{log.projectName}</span>
+                      <LatencyBadge durationMs={log.durationMs} />
+                    </div>
+                    <p className="mt-2 truncate text-muted">
+                      {log.method} {log.path}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-2xl bg-panel-strong p-4 text-sm text-muted">
+                  No latency alerts in the latest logs.
+                </p>
+              )}
+            </div>
+          </section>
+
           <section className="rounded-3xl bg-panel p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -300,6 +352,7 @@ function MiniStat({
 
 function ProjectHealthCard({ project }: { project: ProjectLogs }) {
   const errorCount = project.logs.filter((log) => log.statusCode >= 400).length;
+  const slowCount = project.logs.filter((log) => isSlowRequest(log.durationMs)).length;
   const latestLog = [...project.logs].sort(
     (first, second) =>
       new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
@@ -307,14 +360,18 @@ function ProjectHealthCard({ project }: { project: ProjectLogs }) {
   const health =
     project.logs.length === 0
       ? "No traffic"
-      : errorCount > 0
-        ? "Has errors"
+        : errorCount > 0
+          ? "Has errors"
+          : slowCount > 0
+            ? "Watch"
         : "Healthy";
   const healthClass =
     health === "Healthy"
       ? "bg-primary/15 text-primary-soft"
       : health === "Has errors"
         ? "bg-red-500/15 text-red-300"
+        : health === "Watch"
+          ? "bg-orange-500/15 text-orange-200"
         : "bg-surface text-muted";
 
   return (
@@ -331,9 +388,10 @@ function ProjectHealthCard({ project }: { project: ProjectLogs }) {
         </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
+      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
         <MiniHealthStat label="Requests" value={project.logs.length} />
         <MiniHealthStat label="Errors" value={errorCount} />
+        <MiniHealthStat label="Latency" value={slowCount} />
         <MiniHealthStat
           label="Last"
           value={latestLog ? formatShortTime(latestLog.createdAt) : "-"}
@@ -349,21 +407,6 @@ function MiniHealthStat({ label, value }: { label: string; value: number | strin
       <p className="text-xs text-muted">{label}</p>
       <p className="mt-1 font-black">{value}</p>
     </div>
-  );
-}
-
-function StatusBadge({ statusCode }: { statusCode: number }) {
-  const className =
-    statusCode >= 500
-      ? "bg-red-500/15 text-red-300"
-      : statusCode >= 400
-        ? "bg-yellow-500/15 text-yellow-200"
-        : "bg-primary/15 text-primary-soft";
-
-  return (
-    <span className={`w-fit rounded-full px-3 py-1 text-xs font-black ${className}`}>
-      {statusCode}
-    </span>
   );
 }
 

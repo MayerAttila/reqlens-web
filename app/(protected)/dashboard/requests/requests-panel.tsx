@@ -6,6 +6,12 @@ import {
   DataTable,
   DataTableColumn
 } from "../../../../components/ui/data-table";
+import {
+  isSlowRequest,
+  LatencyBadge,
+  slowRequestThresholdMs,
+  StatusBadge
+} from "../../../../components/ui/request-badges";
 import { SearchInput } from "../../../../components/ui/search-input";
 
 type RequestLog = {
@@ -53,7 +59,7 @@ const requestColumns: Array<DataTableColumn<VisibleRequestLog>> = [
   {
     className: "whitespace-nowrap",
     header: "Latency",
-    render: (log) => <span>{log.durationMs} ms</span>
+    render: (log) => <LatencyBadge durationMs={log.durationMs} />
   },
   {
     className: "whitespace-nowrap",
@@ -113,6 +119,11 @@ export function RequestsPanel() {
     0
   );
   const problemRequests = totalRequests - successfulRequests;
+  const slowRequests = projects.reduce(
+    (count, project) =>
+      count + project.logs.filter((log) => isSlowRequest(log.durationMs)).length,
+    0
+  );
   const averageLatency = totalRequests
     ? Math.round(
         projects.reduce(
@@ -149,10 +160,16 @@ export function RequestsPanel() {
 
   return (
     <div className="grid gap-6">
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         <SummaryCard label="Requests" value={totalRequests} />
         <SummaryCard label="Successful" value={successfulRequests} />
         <SummaryCard label="Problem calls" tone="danger" value={problemRequests} />
+        <SummaryCard
+          helperText={`${slowRequestThresholdMs} ms or higher`}
+          label="Latency alerts"
+          tone={slowRequests ? "warning" : "default"}
+          value={slowRequests}
+        />
         <SummaryCard label="Avg latency" value={`${averageLatency} ms`} />
       </section>
 
@@ -201,12 +218,14 @@ export function RequestsPanel() {
 }
 
 function SummaryCard({
+  helperText,
   label,
   tone = "default",
   value
 }: {
+  helperText?: string;
   label: string;
-  tone?: "danger" | "default";
+  tone?: "danger" | "default" | "warning";
   value: number | string;
 }) {
   return (
@@ -214,11 +233,16 @@ function SummaryCard({
       <p className="text-sm text-muted">{label}</p>
       <p
         className={`mt-2 text-4xl font-black ${
-          tone === "danger" ? "text-red-300" : "text-foreground"
+          tone === "danger"
+            ? "text-red-300"
+            : tone === "warning"
+              ? "text-orange-200"
+              : "text-foreground"
         }`}
       >
         {value}
       </p>
+      {helperText ? <p className="mt-2 text-xs text-muted">{helperText}</p> : null}
     </div>
   );
 }
@@ -236,20 +260,5 @@ function filterRows<TItem>(
 
   return items.filter((item) =>
     getSearchText(item).toLowerCase().includes(normalizedQuery)
-  );
-}
-
-function StatusBadge({ statusCode }: { statusCode: number }) {
-  const className =
-    statusCode >= 500
-      ? "bg-red-500/15 text-red-300"
-      : statusCode >= 400
-        ? "bg-yellow-500/15 text-yellow-200"
-        : "bg-primary/15 text-primary-soft";
-
-  return (
-    <span className={`w-fit rounded-full px-3 py-1 text-xs font-black ${className}`}>
-      {statusCode}
-    </span>
   );
 }

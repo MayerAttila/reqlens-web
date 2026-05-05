@@ -6,6 +6,10 @@ import {
   DataTable,
   DataTableColumn
 } from "../../../../components/ui/data-table";
+import {
+  LatencyBadge,
+  StatusBadge
+} from "../../../../components/ui/request-badges";
 import { SearchInput } from "../../../../components/ui/search-input";
 
 type RequestLog = {
@@ -57,7 +61,7 @@ const errorColumns: Array<DataTableColumn<VisibleErrorLog>> = [
   {
     className: "whitespace-nowrap",
     header: "Latency",
-    render: (log) => <span>{log.durationMs} ms</span>
+    render: (log) => <LatencyBadge durationMs={log.durationMs} />
   },
   {
     className: "whitespace-nowrap",
@@ -233,18 +237,5 @@ function SummaryCard({
         {value}
       </p>
     </div>
-  );
-}
-
-function StatusBadge({ statusCode }: { statusCode: number }) {
-  const className =
-    statusCode >= 500
-      ? "bg-red-500/15 text-red-300"
-      : "bg-yellow-500/15 text-yellow-200";
-
-  return (
-    <span className={`w-fit rounded-full px-3 py-1 text-xs font-black ${className}`}>
-      {statusCode}
-    </span>
   );
 }

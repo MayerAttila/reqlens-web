@@ -27,9 +27,9 @@ export function LatencyBadge({ durationMs }: { durationMs: number }) {
       className={`w-fit rounded-full px-3 py-1 text-xs font-black ${
         slow ? "bg-orange-500/15 text-orange-200" : "bg-surface text-foreground"
       }`}
-      title={slow ? `Slow request: ${durationMs} ms` : `${durationMs} ms`}
+      title={`${durationMs} ms`}
     >
-      {durationMs} ms{slow ? " slow" : ""}
+      {durationMs} ms
     </span>
   );
 }

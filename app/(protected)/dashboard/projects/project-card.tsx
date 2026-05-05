@@ -20,6 +20,8 @@ export function ProjectCard({
         : "bg-primary/15 text-primary-soft"
       : stats.health === "Has errors"
         ? "bg-red-500/20 text-red-200"
+        : stats.health === "Watch"
+          ? "bg-orange-500/15 text-orange-200"
         : isSelected
           ? "bg-surface text-muted"
           : "bg-surface text-muted";
@@ -58,13 +60,13 @@ export function ProjectCard({
         />
         <CardMetric
           isSelected={isSelected}
-          label="Errors"
-          value={String(stats.errorCount)}
+          label="Latency"
+          value={String(stats.slowCount)}
         />
         <CardMetric
           isSelected={isSelected}
-          label="Last status"
-          value={stats.lastStatus ? String(stats.lastStatus) : "-"}
+          label="Errors"
+          value={String(stats.errorCount)}
         />
       </div>
 

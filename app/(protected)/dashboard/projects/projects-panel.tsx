@@ -4,6 +4,10 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
+import {
+  isSlowRequest,
+  slowRequestThresholdMs
+} from "../../../../components/ui/request-badges";
 import { CreateProjectModal } from "./create-project-modal";
 import { ProjectCard } from "./project-card";
 import { SelectedProjectPanel } from "./selected-project-panel";
@@ -35,10 +39,11 @@ type ProjectLogs = {
 
 export type ProjectStats = {
   errorCount: number;
-  health: "Has errors" | "Healthy" | "No traffic";
+  health: "Has errors" | "Healthy" | "No traffic" | "Watch";
   lastRequestAt: string | null;
   lastStatus: number | null;
   requestCount: number;
+  slowCount: number;
 };
 
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
@@ -47,7 +52,8 @@ const emptyProjectStats: ProjectStats = {
   health: "No traffic",
   lastRequestAt: null,
   lastStatus: null,
-  requestCount: 0
+  requestCount: 0,
+  slowCount: 0
 };
 
 export function ProjectsPanel() {
@@ -120,14 +126,22 @@ export function ProjectsPanel() {
       );
       const latestLog = sortedLogs[0];
       const errorCount = logs.filter((log) => log.statusCode >= 400).length;
+      const slowCount = logs.filter((log) => isSlowRequest(log.durationMs)).length;
 
       stats.set(project.id, {
         errorCount,
         health:
-          logs.length === 0 ? "No traffic" : errorCount > 0 ? "Has errors" : "Healthy",
+          logs.length === 0
+            ? "No traffic"
+            : errorCount > 0
+              ? "Has errors"
+              : slowCount > 0
+                ? "Watch"
+                : "Healthy",
         lastRequestAt: latestLog?.createdAt ?? null,
         lastStatus: latestLog?.statusCode ?? null,
-        requestCount: logs.length
+        requestCount: logs.length,
+        slowCount
       });
     }
 
@@ -145,21 +159,26 @@ export function ProjectsPanel() {
   const projectsWithErrors = Array.from(statsByProjectId.values()).filter(
     (stats) => stats.errorCount > 0
   ).length;
+  const projectsWithSlowCalls = Array.from(statsByProjectId.values()).filter(
+    (stats) => stats.slowCount > 0
+  ).length;
   const metricBlocks = useMemo(
     () => [
       { label: "Projects", value: projects.length },
-      {
-        label: "Active keys",
-        value: projects.filter((project) => project.hasApiKey).length
-      },
       { label: "Total requests", value: totalRequests },
+      {
+        helperText: `${slowRequestThresholdMs} ms or higher`,
+        label: "Projects to watch",
+        tone: projectsWithSlowCalls ? "danger" as const : "default" as const,
+        value: projectsWithSlowCalls
+      },
       {
         label: "Projects with errors",
         tone: "danger" as const,
         value: projectsWithErrors
       }
     ],
-    [projects, projectsWithErrors, totalRequests]
+    [projects, projectsWithErrors, projectsWithSlowCalls, totalRequests]
   );
   const selectedProjectStats = selectedProject
     ? statsByProjectId.get(selectedProject.id) ?? emptyProjectStats
