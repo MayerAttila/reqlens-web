@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { authClient } from "../../lib/auth-client";
@@ -65,12 +66,12 @@ export function LoginForm() {
         required
         type="password"
       />
-      <button
+      <Link
+        href="/forgot-password"
         className="text-left text-sm text-muted transition hover:text-foreground"
-        type="button"
       >
         Forgot Password?
-      </button>
+      </Link>
       <Button className="mt-4 w-full" type="submit">
         Login
       </Button>
