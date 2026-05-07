@@ -39,7 +39,8 @@ export function LoginForm() {
         render: "Logged in.",
         type: "success",
       });
-      router.push("/dashboard");
+      const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+      router.push(callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard");
     } catch {
       toast.update(toastId, {
         autoClose: 4200,

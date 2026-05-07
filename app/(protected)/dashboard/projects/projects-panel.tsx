@@ -10,14 +10,30 @@ import {
 } from "../../../../components/ui/request-badges";
 import { CreateProjectModal } from "./create-project-modal";
 import { ProjectCard } from "./project-card";
-import { SelectedProjectPanel } from "./selected-project-panel";
+import { ProjectModal } from "./project-modal";
 
 export type Project = {
+  accessRole: "member" | "owner";
   id: string;
   name: string;
   description: string | null;
   createdAt: string;
   hasApiKey: boolean;
+  invites: ProjectInvite[];
+  members: ProjectMember[];
+};
+
+export type ProjectInvite = {
+  id: string;
+  email: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type ProjectMember = {
+  id: string;
+  email: string;
+  name: string;
 };
 
 type RequestLog = {
@@ -58,16 +74,10 @@ const emptyProjectStats: ProjectStats = {
 
 export function ProjectsPanel() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [projectModal, setProjectModal] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [projectLogs, setProjectLogs] = useState<ProjectLogs[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
-
-  const selectedProject = useMemo(
-    () =>
-      projects.find((project) => project.id === selectedProjectId) ?? projects[0],
-    [projects, selectedProjectId]
-  );
 
   useEffect(() => {
     void loadPageData();
@@ -88,8 +98,9 @@ export function ProjectsPanel() {
       }
 
       const data = (await response.json()) as { projects: Project[] };
-      setProjects(data.projects);
-      setSelectedProjectId((current) => current || data.projects[0]?.id || "");
+      const normalizedProjects = data.projects.map(normalizeProject);
+
+      setProjects(normalizedProjects);
     } catch {
       toast.error("Could not load projects.");
     } finally {
@@ -180,13 +191,7 @@ export function ProjectsPanel() {
     ],
     [projects, projectsWithErrors, projectsWithSlowCalls, totalRequests]
   );
-  const selectedProjectStats = selectedProject
-    ? statsByProjectId.get(selectedProject.id) ?? emptyProjectStats
-    : null;
   const openCreateModal = useCallback(() => setIsCreateOpen(true), []);
-  const handleSelectProject = useCallback((projectId: string) => {
-    setSelectedProjectId(projectId);
-  }, []);
 
   async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -222,10 +227,9 @@ export function ProjectsPanel() {
         return;
       }
 
-      const project = data.project;
+      const project = normalizeProject(data.project);
 
       setProjects((current) => [project, ...current]);
-      setSelectedProjectId(project.id);
       setIsCreateOpen(false);
       form.reset();
       toast.update(toastId, {
@@ -298,14 +302,6 @@ export function ProjectsPanel() {
   }
 
   async function deleteProject(project: Project) {
-    const confirmed = window.confirm(
-      `Delete "${project.name}"? This also deletes its saved request logs.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     const toastId = toast.loading("Deleting project...");
 
     try {
@@ -328,19 +324,12 @@ export function ProjectsPanel() {
       }
 
       setProjects((current) => {
-        const nextProjects = current.filter((item) => item.id !== project.id);
-        setSelectedProjectId((currentSelected) => {
-          if (currentSelected !== project.id) {
-            return currentSelected;
-          }
-
-          return nextProjects[0]?.id ?? "";
-        });
-        return nextProjects;
+        return current.filter((item) => item.id !== project.id);
       });
       setProjectLogs((current) =>
         current.filter((item) => item.projectId !== project.id)
       );
+      setProjectModal(null);
       toast.update(toastId, {
         autoClose: 3200,
         isLoading: false,
@@ -357,12 +346,66 @@ export function ProjectsPanel() {
     }
   }
 
+  async function inviteProjectMember(project: Project, email: string) {
+    const toastId = toast.loading("Sending invite...");
+
+    try {
+      const response = await fetch(`${apiUrl}/projects/${project.id}/invites`, {
+        body: JSON.stringify({ email }),
+        credentials: "include",
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        invite?: ProjectInvite;
+      };
+
+      if (!response.ok || !data.invite) {
+        toast.update(toastId, {
+          autoClose: 4200,
+          isLoading: false,
+          render: data.error ?? "Could not send invite.",
+          type: "error"
+        });
+        return;
+      }
+
+      setProjects((current) =>
+        current.map((item) =>
+          item.id === project.id
+            ? { ...item, invites: [data.invite!, ...item.invites] }
+            : item
+        )
+      );
+      setProjectModal((current) =>
+        current?.id === project.id
+          ? { ...current, invites: [data.invite!, ...current.invites] }
+          : current
+      );
+      toast.update(toastId, {
+        autoClose: 3200,
+        isLoading: false,
+        render: "Invite sent.",
+        type: "success"
+      });
+    } catch {
+      toast.update(toastId, {
+        autoClose: 4200,
+        isLoading: false,
+        render: "Could not reach the API server.",
+        type: "error"
+      });
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <MetricGrid blocks={metricBlocks} />
 
-      <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="rounded-3xl bg-panel p-6">
+      <section className="min-w-0 rounded-3xl bg-panel p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-xl font-black">Project tiles</h2>
@@ -375,7 +418,7 @@ export function ProjectsPanel() {
             </Button>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {isLoading ? (
               <p className="text-sm text-muted">Loading projects...</p>
             ) : null}
@@ -394,28 +437,17 @@ export function ProjectsPanel() {
             ) : null}
 
             {projects.map((project) => {
-              const selected = project.id === selectedProject?.id;
-
               return (
                 <ProjectCard
-                  isSelected={selected}
                   key={project.id}
-                  onSelect={handleSelectProject}
+                  onCopyApiKey={copyApiKey}
+                  onOpenProject={setProjectModal}
                   project={project}
                   stats={statsByProjectId.get(project.id) ?? emptyProjectStats}
                 />
               );
             })}
           </div>
-        </div>
-
-        <SelectedProjectPanel
-          onCopyApiKey={copyApiKey}
-          onDeleteProject={deleteProject}
-          onOpenCreate={openCreateModal}
-          project={selectedProject}
-          stats={selectedProjectStats}
-        />
       </section>
 
       {isCreateOpen ? (
@@ -424,6 +456,23 @@ export function ProjectsPanel() {
           onSubmit={handleCreateProject}
         />
       ) : null}
+      {projectModal ? (
+        <ProjectModal
+          onClose={() => setProjectModal(null)}
+          onDeleteProject={deleteProject}
+          onInviteMember={inviteProjectMember}
+          project={projectModal}
+        />
+      ) : null}
     </div>
   );
+}
+
+function normalizeProject(project: Project): Project {
+  return {
+    ...project,
+    accessRole: project.accessRole ?? "owner",
+    invites: project.invites ?? [],
+    members: project.members ?? []
+  };
 }

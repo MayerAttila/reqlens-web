@@ -1,97 +1,121 @@
+import type { ReactNode } from "react";
+import { FiCopy } from "react-icons/fi";
 import type { Project, ProjectStats } from "./projects-panel";
 
 type ProjectCardProps = {
-  isSelected: boolean;
-  onSelect: (projectId: string) => void;
+  onCopyApiKey: (projectId: string) => void;
+  onOpenProject: (project: Project) => void;
   project: Project;
   stats: ProjectStats;
 };
 
 export function ProjectCard({
-  isSelected,
-  onSelect,
+  onCopyApiKey,
+  onOpenProject,
   project,
   stats
 }: ProjectCardProps) {
-  const healthClass =
-    stats.health === "Healthy"
-      ? isSelected
-        ? "bg-primary/20 text-primary-soft"
-        : "bg-primary/15 text-primary-soft"
-      : stats.health === "Has errors"
-        ? "bg-red-500/20 text-red-200"
-        : stats.health === "Watch"
-          ? "bg-orange-500/15 text-orange-200"
-        : isSelected
-          ? "bg-surface text-muted"
-          : "bg-surface text-muted";
-
   return (
     <article
-      className={`rounded-3xl border p-5 text-left transition ${
-        isSelected
-          ? "border-primary/45 bg-panel-strong"
-          : "border-transparent bg-panel-strong hover:border-line hover:bg-surface"
-      }`}
+      className="group cursor-pointer overflow-hidden rounded-3xl border border-line/40 bg-panel-strong text-left shadow-xl shadow-black/10 transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-primary/10"
+      onClick={() => onOpenProject(project)}
     >
-      <button
-        className="block w-full text-left"
-        onClick={() => onSelect(project.id)}
-        type="button"
-      >
+      <div className="p-5">
+      <div className="block w-full text-left">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 truncate text-lg font-black">{project.name}</h3>
-          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${healthClass}`}>
-            {stats.health}
-          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-xl font-black">{project.name}</h3>
+            <p className="mt-1 text-xs text-muted">
+              Created {new Date(project.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+          {project.accessRole === "owner" && project.hasApiKey ? (
+            <IconAction
+              label="Copy API key"
+              onClick={() => onCopyApiKey(project.id)}
+              variant="primary"
+            >
+              <FiCopy className="size-4" />
+            </IconAction>
+          ) : null}
         </div>
         <p
           className="mt-2 line-clamp-2 text-sm text-muted"
         >
           {project.description || "No description yet."}
         </p>
-      </button>
+      </div>
 
-      <div className="mt-5 grid gap-3 text-xs md:grid-cols-3">
+      <div className="mt-6 grid gap-3 text-xs md:grid-cols-3">
         <CardMetric
-          isSelected={isSelected}
           label="Requests"
           value={String(stats.requestCount)}
         />
         <CardMetric
-          isSelected={isSelected}
           label="Latency"
           value={String(stats.slowCount)}
         />
         <CardMetric
-          isSelected={isSelected}
           label="Errors"
           value={String(stats.errorCount)}
         />
       </div>
-
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-xs text-muted">
-          Created {new Date(project.createdAt).toLocaleDateString()}
-        </p>
       </div>
+
+      {project.accessRole !== "owner" ? (
+        <div className="border-t border-background bg-background/35 px-5 py-4">
+          <span className="inline-flex rounded-full bg-surface px-3 py-1 text-xs text-muted">
+            Shared with you
+          </span>
+        </div>
+      ) : null}
     </article>
   );
 }
 
+function IconAction({
+  children,
+  label,
+  onClick,
+  variant = "secondary"
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary";
+}) {
+  const className =
+    variant === "primary"
+      ? "bg-primary/15 text-primary-soft hover:bg-primary hover:text-white"
+      : "bg-surface text-foreground hover:bg-surface-soft";
+
+  return (
+    <button
+      aria-label={label}
+      className={`grid size-10 shrink-0 place-items-center rounded-2xl transition ${className}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
 function CardMetric({
-  isSelected,
   label,
   value
 }: {
-  isSelected: boolean;
   label: string;
   value: string;
 }) {
   return (
-    <div>
+    <div className="rounded-2xl bg-background/45 p-3">
       <p className="text-muted">{label}</p>
-      <p className="mt-1 text-base font-black">{value}</p>
+      <p className="mt-2 text-lg font-black">{value}</p>
     </div>
   );
 }
