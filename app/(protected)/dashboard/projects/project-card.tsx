@@ -1,24 +1,25 @@
 import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { FiCopy } from "react-icons/fi";
 import type { Project, ProjectStats } from "./projects-panel";
 
 type ProjectCardProps = {
   onCopyApiKey: (projectId: string) => void;
-  onOpenProject: (project: Project) => void;
   project: Project;
   stats: ProjectStats;
 };
 
 export function ProjectCard({
   onCopyApiKey,
-  onOpenProject,
   project,
   stats
 }: ProjectCardProps) {
+  const router = useRouter();
+
   return (
     <article
       className="group cursor-pointer overflow-hidden rounded-3xl border border-line/40 bg-panel-strong text-left shadow-xl shadow-black/10 transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-primary/10"
-      onClick={() => onOpenProject(project)}
+      onClick={() => router.push(`/dashboard/projects/${project.id}`)}
     >
       <div className="p-5">
       <div className="block w-full text-left">
@@ -27,6 +28,13 @@ export function ProjectCard({
             <h3 className="truncate text-xl font-black">{project.name}</h3>
             <p className="mt-1 text-xs text-muted">
               Created {new Date(project.createdAt).toLocaleDateString()}
+            </p>
+            <p className="mt-2 text-xs text-muted">
+              {project.members.length} collaborator
+              {project.members.length === 1 ? "" : "s"}
+              {project.invites.length
+                ? ` - ${project.invites.length} pending`
+                : ""}
             </p>
           </div>
           {project.accessRole === "owner" && project.hasApiKey ? (

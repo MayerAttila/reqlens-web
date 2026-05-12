@@ -10,7 +10,6 @@ import {
 } from "../../../../components/ui/request-badges";
 import { CreateProjectModal } from "./create-project-modal";
 import { ProjectCard } from "./project-card";
-import { ProjectModal } from "./project-modal";
 
 export type Project = {
   accessRole: "member" | "owner";
@@ -74,7 +73,6 @@ const emptyProjectStats: ProjectStats = {
 
 export function ProjectsPanel() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [projectModal, setProjectModal] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [projectLogs, setProjectLogs] = useState<ProjectLogs[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -301,106 +299,6 @@ export function ProjectsPanel() {
     }
   }
 
-  async function deleteProject(project: Project) {
-    const toastId = toast.loading("Deleting project...");
-
-    try {
-      const response = await fetch(`${apiUrl}/projects/${project.id}`, {
-        credentials: "include",
-        method: "DELETE"
-      });
-      const data = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-
-      if (!response.ok) {
-        toast.update(toastId, {
-          autoClose: 4200,
-          isLoading: false,
-          render: data.error ?? "Could not delete project.",
-          type: "error"
-        });
-        return;
-      }
-
-      setProjects((current) => {
-        return current.filter((item) => item.id !== project.id);
-      });
-      setProjectLogs((current) =>
-        current.filter((item) => item.projectId !== project.id)
-      );
-      setProjectModal(null);
-      toast.update(toastId, {
-        autoClose: 3200,
-        isLoading: false,
-        render: "Project deleted.",
-        type: "success"
-      });
-    } catch {
-      toast.update(toastId, {
-        autoClose: 4200,
-        isLoading: false,
-        render: "Could not reach the API server.",
-        type: "error"
-      });
-    }
-  }
-
-  async function inviteProjectMember(project: Project, email: string) {
-    const toastId = toast.loading("Sending invite...");
-
-    try {
-      const response = await fetch(`${apiUrl}/projects/${project.id}/invites`, {
-        body: JSON.stringify({ email }),
-        credentials: "include",
-        headers: {
-          "content-type": "application/json"
-        },
-        method: "POST"
-      });
-      const data = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        invite?: ProjectInvite;
-      };
-
-      if (!response.ok || !data.invite) {
-        toast.update(toastId, {
-          autoClose: 4200,
-          isLoading: false,
-          render: data.error ?? "Could not send invite.",
-          type: "error"
-        });
-        return;
-      }
-
-      setProjects((current) =>
-        current.map((item) =>
-          item.id === project.id
-            ? { ...item, invites: [data.invite!, ...item.invites] }
-            : item
-        )
-      );
-      setProjectModal((current) =>
-        current?.id === project.id
-          ? { ...current, invites: [data.invite!, ...current.invites] }
-          : current
-      );
-      toast.update(toastId, {
-        autoClose: 3200,
-        isLoading: false,
-        render: "Invite sent.",
-        type: "success"
-      });
-    } catch {
-      toast.update(toastId, {
-        autoClose: 4200,
-        isLoading: false,
-        render: "Could not reach the API server.",
-        type: "error"
-      });
-    }
-  }
-
   return (
     <div className="grid gap-6">
       <MetricGrid blocks={metricBlocks} />
@@ -441,7 +339,6 @@ export function ProjectsPanel() {
                 <ProjectCard
                   key={project.id}
                   onCopyApiKey={copyApiKey}
-                  onOpenProject={setProjectModal}
                   project={project}
                   stats={statsByProjectId.get(project.id) ?? emptyProjectStats}
                 />
@@ -454,14 +351,6 @@ export function ProjectsPanel() {
         <CreateProjectModal
           onClose={() => setIsCreateOpen(false)}
           onSubmit={handleCreateProject}
-        />
-      ) : null}
-      {projectModal ? (
-        <ProjectModal
-          onClose={() => setProjectModal(null)}
-          onDeleteProject={deleteProject}
-          onInviteMember={inviteProjectMember}
-          project={projectModal}
         />
       ) : null}
     </div>
