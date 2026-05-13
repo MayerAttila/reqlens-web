@@ -23,21 +23,16 @@ export function ProjectCard({
     >
       <div className="p-5">
       <div className="block w-full text-left">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex min-h-12 items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="truncate text-xl font-black">{project.name}</h3>
-            <p className="mt-1 text-xs text-muted">
-              Created {new Date(project.createdAt).toLocaleDateString()}
-            </p>
-            <p className="mt-2 text-xs text-muted">
-              {project.members.length} collaborator
-              {project.members.length === 1 ? "" : "s"}
-              {project.invites.length
-                ? ` - ${project.invites.length} pending`
-                : ""}
-            </p>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h3 className="truncate text-xl font-black">{project.name}</h3>
+              <span className="inline-flex rounded-full bg-surface px-3 py-1 text-xs font-black text-muted">
+                {roleLabel(project.accessRole)}
+              </span>
+            </div>
           </div>
-          {project.accessRole === "owner" && project.hasApiKey ? (
+          {canCopyApiKey(project.accessRole) && project.hasApiKey ? (
             <IconAction
               label="Copy API key"
               onClick={() => onCopyApiKey(project.id)}
@@ -47,14 +42,9 @@ export function ProjectCard({
             </IconAction>
           ) : null}
         </div>
-        <p
-          className="mt-2 line-clamp-2 text-sm text-muted"
-        >
-          {project.description || "No description yet."}
-        </p>
       </div>
 
-      <div className="mt-6 grid gap-3 text-xs md:grid-cols-3">
+      <div className="mt-6 grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
         <CardMetric
           label="Requests"
           value={String(stats.requestCount)}
@@ -67,18 +57,36 @@ export function ProjectCard({
           label="Errors"
           value={String(stats.errorCount)}
         />
+        <CardMetric
+          label="Members"
+          value={String(project.members.length)}
+        />
       </div>
+      <p className="mt-5 line-clamp-2 min-h-10 text-sm text-muted">
+        {project.description || "No description yet."}
+      </p>
       </div>
-
-      {project.accessRole !== "owner" ? (
-        <div className="border-t border-background bg-background/35 px-5 py-4">
-          <span className="inline-flex rounded-full bg-surface px-3 py-1 text-xs text-muted">
-            Shared with you
-          </span>
-        </div>
-      ) : null}
     </article>
   );
+}
+
+function canCopyApiKey(role: Project["accessRole"]) {
+  return role === "owner" || role === "admin" || role === "developer";
+}
+
+function roleLabel(role: Project["accessRole"]) {
+  switch (role) {
+    case "admin":
+      return "Admin";
+    case "developer":
+      return "Developer";
+    case "viewer":
+      return "Viewer";
+    case "owner":
+      return "Owner";
+    default:
+      return "Viewer";
+  }
 }
 
 function IconAction({

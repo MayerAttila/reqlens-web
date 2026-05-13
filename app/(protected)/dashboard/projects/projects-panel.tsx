@@ -12,7 +12,7 @@ import { CreateProjectModal } from "./create-project-modal";
 import { ProjectCard } from "./project-card";
 
 export type Project = {
-  accessRole: "member" | "owner";
+  accessRole: ProjectAccessRole;
   id: string;
   name: string;
   description: string | null;
@@ -33,7 +33,11 @@ export type ProjectMember = {
   id: string;
   email: string;
   name: string;
+  role: ProjectMemberRole;
 };
+
+export type ProjectAccessRole = "admin" | "developer" | "owner" | "viewer";
+export type ProjectMemberRole = "admin" | "developer" | "viewer";
 
 type RequestLog = {
   id: string;
@@ -360,8 +364,24 @@ export function ProjectsPanel() {
 function normalizeProject(project: Project): Project {
   return {
     ...project,
-    accessRole: project.accessRole ?? "owner",
+    accessRole: normalizeAccessRole(project.accessRole),
     invites: project.invites ?? [],
-    members: project.members ?? []
+    members: (project.members ?? []).map((member) => ({
+      ...member,
+      role: member.role ?? "viewer"
+    }))
   };
+}
+
+function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
+  if (
+    role === "owner" ||
+    role === "admin" ||
+    role === "developer" ||
+    role === "viewer"
+  ) {
+    return role;
+  }
+
+  return "viewer";
 }

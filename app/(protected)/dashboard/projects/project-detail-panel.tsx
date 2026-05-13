@@ -9,7 +9,12 @@ import { Button } from "../../../../components/ui/button";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
 import { isSlowRequest } from "../../../../components/ui/request-badges";
 import { TextInput } from "../../../../components/ui/text-input";
-import type { Project, ProjectInvite, ProjectStats } from "./projects-panel";
+import type {
+  Project,
+  ProjectInvite,
+  ProjectMemberRole,
+  ProjectStats
+} from "./projects-panel";
 
 type ProjectDetailPanelProps = {
   projectId: string;
@@ -268,6 +273,64 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     }
   }
 
+  async function updateProjectMemberRole(
+    memberId: string,
+    role: ProjectMemberRole
+  ) {
+    if (!project) {
+      return;
+    }
+
+    const toastId = toast.loading("Updating role...");
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/projects/${project.id}/members/${memberId}`,
+        {
+          body: JSON.stringify({ role }),
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          method: "PATCH"
+        }
+      );
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        toast.update(toastId, {
+          autoClose: 4200,
+          isLoading: false,
+          render: data.error ?? "Could not update role.",
+          type: "error"
+        });
+        return;
+      }
+
+      setProject((current) =>
+        current
+          ? {
+              ...current,
+              members: current.members.map((member) =>
+                member.id === memberId ? { ...member, role } : member
+              )
+            }
+          : current
+      );
+      toast.update(toastId, {
+        autoClose: 3200,
+        isLoading: false,
+        render: "Role updated.",
+        type: "success"
+      });
+    } catch {
+      toast.update(toastId, {
+        autoClose: 4200,
+        isLoading: false,
+        render: "Could not reach the API server.",
+        type: "error"
+      });
+    }
+  }
+
   async function revokeProjectInvite(inviteId: string) {
     if (!project) {
       return;
@@ -376,7 +439,12 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     );
   }
 
-  const isOwner = project.accessRole === "owner";
+  const canCopyApiKey =
+    project.accessRole === "owner" ||
+    project.accessRole === "admin" ||
+    project.accessRole === "developer";
+  const canManageProject =
+    project.accessRole === "owner" || project.accessRole === "admin";
 
   return (
     <div className="grid gap-6">
@@ -398,7 +466,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               {project.description || "No description yet."}
             </p>
           </div>
-          {isOwner && project.hasApiKey ? (
+          {canCopyApiKey && project.hasApiKey ? (
             <Button onClick={copyApiKey} type="button">
               Copy API key
             </Button>
@@ -422,7 +490,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
             Manage collaborators and pending invites.
           </p>
 
-          {isOwner ? (
+          {canManageProject ? (
             <form className="mt-6 grid gap-3" onSubmit={inviteProjectMember}>
               <TextInput
                 autoComplete="email"
@@ -443,9 +511,11 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               onAction={removeProjectMember}
               people={project.members.map((member) => ({
                 id: member.id,
-                label: `${member.name} - ${member.email}`
+                label: `${member.name} - ${member.email}`,
+                role: member.role
               }))}
-              showActions={isOwner}
+              onRoleChange={updateProjectMemberRole}
+              showActions={canManageProject}
             />
             <PeopleList
               actionLabel="Revoke"
@@ -456,7 +526,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                 id: invite.id,
                 label: invite.email
               }))}
-              showActions={isOwner}
+              showActions={canManageProject}
             />
           </div>
         </div>
@@ -468,7 +538,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               Edit the name and short description shown across the dashboard.
             </p>
 
-            {isOwner ? (
+            {canManageProject ? (
               <form
                 className="mt-6 grid gap-4"
                 key={project.id}
@@ -494,12 +564,12 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               </form>
             ) : (
               <p className="mt-6 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
-                Shared with you. Only the owner can edit project details.
+                Shared with you. Only owners and admins can edit project details.
               </p>
             )}
           </div>
 
-          {isOwner ? (
+          {canManageProject ? (
             <div className="rounded-3xl bg-panel p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -529,6 +599,7 @@ function PeopleList({
   emptyText,
   label,
   onAction,
+  onRoleChange,
   people,
   showActions
 }: {
@@ -536,7 +607,8 @@ function PeopleList({
   emptyText: string;
   label: string;
   onAction: (id: string) => void;
-  people: Array<{ id: string; label: string }>;
+  onRoleChange?: (id: string, role: ProjectMemberRole) => void;
+  people: Array<{ id: string; label: string; role?: ProjectMemberRole }>;
   showActions: boolean;
 }) {
   return (
@@ -553,13 +625,31 @@ function PeopleList({
             >
               <span className="min-w-0 truncate text-foreground">{person.label}</span>
               {showActions ? (
-                <button
-                  className="shrink-0 text-xs font-black text-muted transition hover:text-red-200"
-                  onClick={() => onAction(person.id)}
-                  type="button"
-                >
-                  {actionLabel}
-                </button>
+                <div className="flex shrink-0 items-center gap-3">
+                  {person.role && onRoleChange ? (
+                    <select
+                      className="rounded-xl border border-line bg-surface px-3 py-2 text-xs font-black text-foreground outline-none transition focus:border-primary"
+                      onChange={(event) =>
+                        onRoleChange(
+                          person.id,
+                          event.target.value as ProjectMemberRole
+                        )
+                      }
+                      value={person.role}
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="developer">Developer</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  ) : null}
+                  <button
+                    className="text-xs font-black text-muted transition hover:text-red-200"
+                    onClick={() => onAction(person.id)}
+                    type="button"
+                  >
+                    {actionLabel}
+                  </button>
+                </div>
               ) : null}
             </div>
           ))}
@@ -602,8 +692,24 @@ function getProjectStats(logs: RequestLog[]): ProjectStats {
 function normalizeProject(project: Project): Project {
   return {
     ...project,
-    accessRole: project.accessRole ?? "owner",
+    accessRole: normalizeAccessRole(project.accessRole),
     invites: project.invites ?? [],
-    members: project.members ?? []
+    members: (project.members ?? []).map((member) => ({
+      ...member,
+      role: member.role ?? "viewer"
+    }))
   };
+}
+
+function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
+  if (
+    role === "owner" ||
+    role === "admin" ||
+    role === "developer" ||
+    role === "viewer"
+  ) {
+    return role;
+  }
+
+  return "viewer";
 }
