@@ -3,7 +3,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiArrowLeft, FiTrash2 } from "react-icons/fi";
+import { FiArrowLeft, FiEdit3, FiTrash2 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
 import {
@@ -643,31 +643,6 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                 key={`${project.id}-${project.settings.latencyErrorThresholdMs}`}
                 onSubmit={updateProjectSettings}
               >
-                <div className="rounded-3xl bg-panel-strong p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className="text-sm font-black text-foreground">
-                        Latency alert limit
-                      </p>
-                      <p className="mt-1 text-sm text-muted">
-                        Calls at or above this value are treated as latency alerts.
-                      </p>
-                    </div>
-                    <label className="flex w-full max-w-44 items-center gap-3 rounded-2xl bg-background/45 px-4 py-3">
-                      <input
-                        className="min-w-0 flex-1 bg-transparent text-2xl font-black text-foreground outline-none"
-                        defaultValue={project.settings.latencyErrorThresholdMs}
-                        max={60000}
-                        min={1}
-                        name="latencyErrorThresholdMs"
-                        required
-                        type="number"
-                      />
-                      <span className="text-sm font-black text-muted">ms</span>
-                    </label>
-                  </div>
-                </div>
-
                 <NotificationSetting
                   audienceName="latencyEmailAudience"
                   checkboxName="latencyEmailEnabled"
@@ -675,6 +650,24 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                   customUserIdsName="latencyEmailCustomUserIds"
                   defaultChecked={project.settings.latencyEmailEnabled}
                   eyebrow="Latency emails"
+                  latencyThresholdInput={
+                    <label className="group flex h-10 w-32 items-center gap-2 border-b border-line transition focus-within:border-primary">
+                      <FiEdit3 className="size-3.5 shrink-0 text-muted transition group-focus-within:text-primary" />
+                      <input
+                        aria-label="Latency alert limit in milliseconds"
+                        className="w-16 bg-transparent text-sm text-foreground outline-none"
+                        defaultValue={project.settings.latencyErrorThresholdMs}
+                        max={60000}
+                        min={1}
+                        name="latencyErrorThresholdMs"
+                        required
+                        type="number"
+                      />
+                      <span className="shrink-0 text-xs text-muted transition group-focus-within:text-primary">
+                        ms
+                      </span>
+                    </label>
+                  }
                   onAudienceChange={setLatencyAudience}
                   onCustomize={() => setCustomPicker("latency")}
                   recipientCount={getAlertRecipientCount({
@@ -913,6 +906,7 @@ function NotificationSetting({
   customUserIdsName,
   defaultChecked,
   eyebrow,
+  latencyThresholdInput,
   onAudienceChange,
   onCustomize,
   recipientCount,
@@ -926,6 +920,7 @@ function NotificationSetting({
   customUserIdsName: string;
   defaultChecked: boolean;
   eyebrow: string;
+  latencyThresholdInput?: ReactNode;
   onAudienceChange: (audience: EmailAlertAudience) => void;
   onCustomize: () => void;
   recipientCount: number;
@@ -942,10 +937,13 @@ function NotificationSetting({
           <h3 className="mt-2 text-lg font-black">{title}</h3>
           <p className="mt-1 text-sm text-muted">{children}</p>
         </div>
-        <ToggleInput
-          defaultChecked={defaultChecked}
-          name={checkboxName}
-        />
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+          {latencyThresholdInput}
+          <ToggleInput
+            defaultChecked={defaultChecked}
+            name={checkboxName}
+          />
+        </div>
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <CustomAudienceSelect
