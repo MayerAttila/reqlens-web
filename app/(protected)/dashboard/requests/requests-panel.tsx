@@ -6,6 +6,7 @@ import {
   DataTable,
   DataTableColumn
 } from "../../../../components/ui/data-table";
+import { DropdownSelect } from "../../../../components/ui/dropdown-select";
 import {
   defaultLatencyErrorThresholdMs,
   isSlowRequest,
@@ -202,21 +203,19 @@ export function RequestsPanel() {
 
       <section className="rounded-3xl bg-panel p-6">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <label className="grid gap-2 text-sm text-muted">
-            <span className="sr-only">Project filter</span>
-            <select
-              className="rounded-2xl bg-panel-strong px-4 py-3 text-foreground outline-none ring-1 ring-line transition focus:ring-primary/60"
-              onChange={(event) => setSelectedProjectId(event.target.value)}
+          <div className="w-full lg:max-w-xs">
+            <DropdownSelect
+              onChange={setSelectedProjectId}
+              options={[
+                { label: "All projects", value: "all" },
+                ...projects.map((project) => ({
+                  label: project.projectName,
+                  value: project.projectId
+                }))
+              ]}
               value={selectedProjectId}
-            >
-              <option value="all">All projects</option>
-              {projects.map((project) => (
-                <option key={project.projectId} value={project.projectId}>
-                  {project.projectName}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <SearchInput
             className="w-full lg:max-w-sm"
             onChange={(event) => setRequestSearch(event.target.value)}

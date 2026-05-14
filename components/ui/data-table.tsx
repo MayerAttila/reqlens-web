@@ -1,6 +1,7 @@
 "use client";
 
 import { PointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { DropdownSelect } from "./dropdown-select";
 
 export type DataTableColumn<TItem> = {
   className?: string;
@@ -242,17 +243,16 @@ export function DataTable<TItem>({
         <div className="flex flex-col gap-3 border-t border-background px-4 py-3 text-sm text-muted md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
             <span>Rows</span>
-            <select
-              className="h-9 rounded-xl bg-surface px-2 text-sm text-foreground outline-none ring-1 ring-line transition focus:ring-primary/60"
-              onChange={(event) => setPageSize(Number(event.target.value))}
-              value={pageSize}
-            >
-              {pageSizeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+            <div className="w-24">
+              <DropdownSelect
+                onChange={(value) => setPageSize(Number(value))}
+                options={pageSizeOptions.map((option) => ({
+                  label: String(option),
+                  value: String(option)
+                }))}
+                value={String(pageSize)}
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

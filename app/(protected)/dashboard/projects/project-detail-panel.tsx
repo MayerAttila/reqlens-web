@@ -3,9 +3,13 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiArrowLeft, FiChevronDown } from "react-icons/fi";
+import { FiArrowLeft, FiTrash2 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
+import {
+  DropdownSelect,
+  DropdownSelectOption
+} from "../../../../components/ui/dropdown-select";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
 import {
   defaultLatencyErrorThresholdMs,
@@ -745,8 +749,10 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
             onClose={() => setCustomPicker(null)}
             onSave={(selectedIds) => {
               if (customPicker === "latency") {
+                setLatencyAudience("custom");
                 setLatencyCustomUserIds(selectedIds);
               } else {
+                setErrorAudience("custom");
                 setErrorCustomUserIds(selectedIds);
               }
 
@@ -798,8 +804,9 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               label="Members"
               onAction={removeProjectMember}
               people={project.members.map((member) => ({
+                email: member.email,
                 id: member.id,
-                label: `${member.name} - ${member.email}`,
+                label: member.name,
                 role: member.role
               }))}
               onRoleChange={updateProjectMemberRole}
@@ -811,6 +818,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               label="Pending invites"
               onAction={revokeProjectInvite}
               people={project.invites.map((invite) => ({
+                email: invite.email,
                 id: invite.id,
                 label: invite.email
               }))}
@@ -837,7 +845,12 @@ function PeopleList({
   label: string;
   onAction: (id: string) => void;
   onRoleChange?: (id: string, role: ProjectMemberRole) => void;
-  people: Array<{ id: string; label: string; role?: ProjectMemberRole }>;
+  people: Array<{
+    email?: string;
+    id: string;
+    label: string;
+    role?: ProjectMemberRole;
+  }>;
   showActions: boolean;
 }) {
   return (
@@ -849,34 +862,34 @@ function PeopleList({
         <div className="mt-3 grid gap-2">
           {people.map((person) => (
             <div
-              className="flex items-center justify-between gap-3 rounded-2xl bg-panel-strong px-4 py-3 text-sm"
+              className="grid gap-3 rounded-2xl bg-panel-strong px-4 py-3 text-sm"
               key={person.id}
             >
-              <span className="min-w-0 truncate text-foreground">{person.label}</span>
+              <div className="min-w-0">
+                <p className="truncate font-black text-foreground">{person.label}</p>
+                {person.email && person.email !== person.label ? (
+                  <p className="mt-1 truncate text-xs text-muted">{person.email}</p>
+                ) : null}
+              </div>
               {showActions ? (
-                <div className="flex shrink-0 items-center gap-3">
+                <div className="flex min-w-0 items-center justify-between gap-2">
                   {person.role && onRoleChange ? (
-                    <select
-                      className="rounded-xl border border-line bg-surface px-3 py-2 text-xs font-black text-foreground outline-none transition focus:border-primary"
-                      onChange={(event) =>
-                        onRoleChange(
-                          person.id,
-                          event.target.value as ProjectMemberRole
-                        )
-                      }
-                      value={person.role}
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="developer">Developer</option>
-                      <option value="viewer">Viewer</option>
-                    </select>
+                    <div className="min-w-36">
+                      <DropdownSelect
+                        onChange={(role) => onRoleChange(person.id, role)}
+                        options={memberRoleOptions}
+                        value={person.role}
+                      />
+                    </div>
                   ) : null}
                   <button
-                    className="text-xs font-black text-muted transition hover:text-red-200"
+                    aria-label={actionLabel}
+                    className="grid size-9 shrink-0 place-items-center rounded-full bg-surface text-muted transition hover:bg-red-500/15 hover:text-red-200"
                     onClick={() => onAction(person.id)}
+                    title={actionLabel}
                     type="button"
                   >
-                    {actionLabel}
+                    <FiTrash2 className="size-4" />
                   </button>
                 </div>
               ) : null}
@@ -945,13 +958,9 @@ function NotificationSetting({
           onClick={onCustomize}
           type="button"
         >
-          Choose users ({customUserIds.length})
+          Choose users ({recipientCount})
         </button>
       </div>
-      <p className="mt-3 text-xs font-black text-muted">
-        {recipientCount} user{recipientCount === 1 ? "" : "s"} will receive this
-        email.
-      </p>
       {customUserIds.map((userId) => (
         <input
           key={userId}
@@ -964,14 +973,17 @@ function NotificationSetting({
   );
 }
 
-const emailAudienceOptions: Array<{
-  label: string;
-  value: EmailAlertAudience;
-}> = [
+const emailAudienceOptions: Array<DropdownSelectOption<EmailAlertAudience>> = [
   { label: "All users", value: "all" },
   { label: "Admin and above", value: "admin_and_above" },
   { label: "Developer and above", value: "developer_and_above" },
   { label: "Custom users", value: "custom" }
+];
+
+const memberRoleOptions: Array<DropdownSelectOption<ProjectMemberRole>> = [
+  { label: "Admin", value: "admin" },
+  { label: "Developer", value: "developer" },
+  { label: "Viewer", value: "viewer" }
 ];
 
 function CustomAlertUsersModal({
@@ -987,7 +999,7 @@ function CustomAlertUsersModal({
   selectedUserIds: string[];
   suggestedUserIds: string[];
   title: string;
-  users: ProjectUser[];
+  users: Array<ProjectUser & { role: Project["accessRole"] }>;
 }) {
   const [draftUserIds, setDraftUserIds] = useState(
     selectedUserIds.length ? selectedUserIds : suggestedUserIds
@@ -1026,21 +1038,29 @@ function CustomAlertUsersModal({
         <div className="mt-6 grid max-h-80 gap-2 overflow-y-auto">
           {users.map((user) => (
             <label
-              className="flex cursor-pointer items-center gap-3 rounded-2xl bg-panel-strong px-4 py-3"
+              className="group flex cursor-pointer items-center gap-3 rounded-2xl bg-panel-strong px-4 py-3 transition hover:bg-surface"
               key={user.id}
             >
               <input
                 checked={draftUserIds.includes(user.id)}
-                className="size-4 accent-primary"
+                className="peer sr-only"
                 onChange={() => toggleUser(user.id)}
                 type="checkbox"
               />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-black text-foreground">
-                  {user.name}
+              <span className="grid size-6 shrink-0 place-items-center rounded-lg border border-line bg-background text-transparent transition peer-checked:border-primary/50 peer-checked:bg-primary peer-checked:text-white">
+                <span className="text-sm font-black leading-none">✓</span>
+              </span>
+              <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-foreground">
+                    {user.name}
+                  </span>
+                  <span className="block truncate text-sm text-muted">
+                    {user.email}
+                  </span>
                 </span>
-                <span className="block truncate text-sm text-muted">
-                  {user.email}
+                <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary-soft">
+                  {roleLabel(user.role)}
                 </span>
               </span>
             </label>
@@ -1069,55 +1089,13 @@ function CustomAudienceSelect({
   onChange: (value: EmailAlertAudience) => void;
   value: EmailAlertAudience;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption =
-    emailAudienceOptions.find((option) => option.value === value) ??
-    emailAudienceOptions[1];
-
   return (
-    <div className="relative">
-      <input name={inputName} type="hidden" value={value} />
-      <button
-        className={`flex h-12 w-full items-center justify-between gap-3 rounded-2xl border px-4 text-left text-sm font-black outline-none transition ${
-          isOpen
-            ? "border-primary bg-primary/10 text-primary-soft"
-            : "border-line bg-background/45 text-foreground hover:border-primary/40"
-        }`}
-        onClick={() => setIsOpen((current) => !current)}
-        type="button"
-      >
-        <span>{selectedOption.label}</span>
-        <FiChevronDown
-          className={`size-4 shrink-0 transition ${isOpen ? "rotate-180" : ""}`}
-        />
-      </button>
-
-      {isOpen ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-2xl border border-primary/35 bg-panel shadow-2xl shadow-black/30">
-          {emailAudienceOptions.map((option) => {
-            const selected = option.value === value;
-
-            return (
-              <button
-                className={`block w-full px-4 py-3 text-left text-sm font-black transition ${
-                  selected
-                    ? "bg-primary/20 text-primary-soft"
-                    : "text-foreground hover:bg-surface"
-                }`}
-                key={option.value}
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                type="button"
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
+    <DropdownSelect
+      inputName={inputName}
+      onChange={onChange}
+      options={emailAudienceOptions}
+      value={value}
+    />
   );
 }
 
@@ -1222,6 +1200,19 @@ function getProjectUsers(project: Project) {
     (user, index, current) =>
       current.findIndex((item) => item.id === user.id) === index
   );
+}
+
+function roleLabel(role: Project["accessRole"]) {
+  switch (role) {
+    case "owner":
+      return "Owner";
+    case "admin":
+      return "Admin";
+    case "developer":
+      return "Developer";
+    default:
+      return "Viewer";
+  }
 }
 
 function getAlertRecipientCount({
