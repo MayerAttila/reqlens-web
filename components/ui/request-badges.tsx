@@ -1,7 +1,10 @@
-export const slowRequestThresholdMs = 750;
+export const defaultLatencyErrorThresholdMs = 750;
 
-export function isSlowRequest(durationMs: number) {
-  return durationMs >= slowRequestThresholdMs;
+export function isSlowRequest(
+  durationMs: number,
+  thresholdMs = defaultLatencyErrorThresholdMs
+) {
+  return durationMs >= thresholdMs;
 }
 
 export function StatusBadge({ statusCode }: { statusCode: number }) {
@@ -19,8 +22,14 @@ export function StatusBadge({ statusCode }: { statusCode: number }) {
   );
 }
 
-export function LatencyBadge({ durationMs }: { durationMs: number }) {
-  const slow = isSlowRequest(durationMs);
+export function LatencyBadge({
+  durationMs,
+  thresholdMs = defaultLatencyErrorThresholdMs
+}: {
+  durationMs: number;
+  thresholdMs?: number;
+}) {
+  const slow = isSlowRequest(durationMs, thresholdMs);
 
   return (
     <span

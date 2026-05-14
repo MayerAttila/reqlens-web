@@ -7,6 +7,7 @@ import {
   DataTableColumn
 } from "../../../../components/ui/data-table";
 import {
+  defaultLatencyErrorThresholdMs,
   LatencyBadge,
   StatusBadge
 } from "../../../../components/ui/request-badges";
@@ -26,10 +27,14 @@ type ProjectLogs = {
   projectId: string;
   projectName: string;
   hasApiKey: boolean;
+  settings?: {
+    latencyErrorThresholdMs: number;
+  };
   logs: RequestLog[];
 };
 
 type VisibleErrorLog = RequestLog & {
+  latencyErrorThresholdMs: number;
   projectName: string;
 };
 
@@ -61,7 +66,12 @@ const errorColumns: Array<DataTableColumn<VisibleErrorLog>> = [
   {
     className: "whitespace-nowrap",
     header: "Latency",
-    render: (log) => <LatencyBadge durationMs={log.durationMs} />
+    render: (log) => (
+      <LatencyBadge
+        durationMs={log.durationMs}
+        thresholdMs={log.latencyErrorThresholdMs}
+      />
+    )
   },
   {
     className: "whitespace-nowrap",
@@ -94,6 +104,9 @@ export function ErrorsPanel() {
             .filter((log) => log.statusCode >= 400)
             .map((log) => ({
               ...log,
+              latencyErrorThresholdMs:
+                project.settings?.latencyErrorThresholdMs ??
+                defaultLatencyErrorThresholdMs,
               projectName: project.projectName
             }))
         )

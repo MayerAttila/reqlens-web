@@ -9,9 +9,9 @@ import {
 import { ButtonLink } from "../ui/button";
 import { MetricGrid } from "../ui/metric-grid";
 import {
+  defaultLatencyErrorThresholdMs,
   isSlowRequest,
   LatencyBadge,
-  slowRequestThresholdMs,
   StatusBadge
 } from "../ui/request-badges";
 import { SearchInput } from "../ui/search-input";
@@ -30,10 +30,14 @@ type ProjectLogs = {
   projectId: string;
   projectName: string;
   hasApiKey: boolean;
+  settings?: {
+    latencyErrorThresholdMs: number;
+  };
   logs: RequestLog[];
 };
 
 type RecentRequest = RequestLog & {
+  latencyErrorThresholdMs: number;
   projectName: string;
 };
 
@@ -61,7 +65,12 @@ const recentRequestColumns: Array<DataTableColumn<RecentRequest>> = [
   {
     className: "whitespace-nowrap",
     header: "Latency",
-    render: (log) => <LatencyBadge durationMs={log.durationMs} />
+    render: (log) => (
+      <LatencyBadge
+        durationMs={log.durationMs}
+        thresholdMs={log.latencyErrorThresholdMs}
+      />
+    )
   },
   {
     className: "whitespace-nowrap",
@@ -105,6 +114,9 @@ export function DashboardOverview() {
       projects.flatMap((project) =>
         project.logs.map((log) => ({
           ...log,
+          latencyErrorThresholdMs:
+            project.settings?.latencyErrorThresholdMs ??
+            defaultLatencyErrorThresholdMs,
           projectName: project.projectName
         }))
       ),
@@ -132,7 +144,7 @@ export function DashboardOverview() {
   const todayLogs = allLogs.filter((log) => isToday(log.createdAt));
   const todayErrors = todayLogs.filter((log) => log.statusCode >= 400);
   const todaySlowRequests = todayLogs.filter((log) =>
-    isSlowRequest(log.durationMs)
+    isSlowRequest(log.durationMs, log.latencyErrorThresholdMs)
   );
   const averageLatency = todayLogs.length
     ? Math.round(
@@ -144,7 +156,7 @@ export function DashboardOverview() {
     .filter((log) => log.statusCode >= 400)
     .slice(0, 5);
   const latestSlowRequests = recentRequests
-    .filter((log) => isSlowRequest(log.durationMs))
+    .filter((log) => isSlowRequest(log.durationMs, log.latencyErrorThresholdMs))
     .slice(0, 5);
   const clientErrors = latestErrors.filter(
     (log) => log.statusCode >= 400 && log.statusCode < 500
@@ -163,7 +175,7 @@ export function DashboardOverview() {
             value: todayErrors.length
           },
           {
-            helperText: `Avg ${averageLatency} ms · ${slowRequestThresholdMs} ms alert threshold`,
+            helperText: `Avg ${averageLatency} ms - per-project alert limits`,
             label: "Latency alerts today",
             tone: todaySlowRequests.length ? "danger" : "default",
             value: todaySlowRequests.length
@@ -211,7 +223,7 @@ export function DashboardOverview() {
           <section className="rounded-3xl bg-panel p-6">
             <h2 className="text-2xl font-black">Latency snapshot</h2>
             <p className="mt-1 text-sm text-muted">
-              Latest calls at {slowRequestThresholdMs} ms or higher.
+              Latest calls at each project's latency limit or higher.
             </p>
 
             <div className="mt-5 grid gap-2">
@@ -223,7 +235,10 @@ export function DashboardOverview() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="truncate font-black">{log.projectName}</span>
-                      <LatencyBadge durationMs={log.durationMs} />
+                      <LatencyBadge
+                        durationMs={log.durationMs}
+                        thresholdMs={log.latencyErrorThresholdMs}
+                      />
                     </div>
                     <p className="mt-2 truncate text-muted">
                       {log.method} {log.path}

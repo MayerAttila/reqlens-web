@@ -7,9 +7,9 @@ import {
   DataTableColumn
 } from "../../../../components/ui/data-table";
 import {
+  defaultLatencyErrorThresholdMs,
   isSlowRequest,
   LatencyBadge,
-  slowRequestThresholdMs,
   StatusBadge
 } from "../../../../components/ui/request-badges";
 import { SearchInput } from "../../../../components/ui/search-input";
@@ -28,10 +28,14 @@ type ProjectLogs = {
   projectId: string;
   projectName: string;
   hasApiKey: boolean;
+  settings?: {
+    latencyErrorThresholdMs: number;
+  };
   logs: RequestLog[];
 };
 
 type VisibleRequestLog = RequestLog & {
+  latencyErrorThresholdMs: number;
   projectName: string;
 };
 
@@ -59,7 +63,12 @@ const requestColumns: Array<DataTableColumn<VisibleRequestLog>> = [
   {
     className: "whitespace-nowrap",
     header: "Latency",
-    render: (log) => <LatencyBadge durationMs={log.durationMs} />
+    render: (log) => (
+      <LatencyBadge
+        durationMs={log.durationMs}
+        thresholdMs={log.latencyErrorThresholdMs}
+      />
+    )
   },
   {
     className: "whitespace-nowrap",
@@ -90,6 +99,9 @@ export function RequestsPanel() {
         .flatMap((project) =>
           project.logs.map((log) => ({
             ...log,
+            latencyErrorThresholdMs:
+              project.settings?.latencyErrorThresholdMs ??
+              defaultLatencyErrorThresholdMs,
             projectName: project.projectName
           }))
         )
@@ -121,7 +133,14 @@ export function RequestsPanel() {
   const problemRequests = totalRequests - successfulRequests;
   const slowRequests = projects.reduce(
     (count, project) =>
-      count + project.logs.filter((log) => isSlowRequest(log.durationMs)).length,
+      count +
+      project.logs.filter((log) =>
+        isSlowRequest(
+          log.durationMs,
+          project.settings?.latencyErrorThresholdMs ??
+            defaultLatencyErrorThresholdMs
+        )
+      ).length,
     0
   );
   const averageLatency = totalRequests
@@ -165,7 +184,7 @@ export function RequestsPanel() {
         <SummaryCard label="Successful" value={successfulRequests} />
         <SummaryCard label="Problem calls" tone="danger" value={problemRequests} />
         <SummaryCard
-          helperText={`${slowRequestThresholdMs} ms or higher`}
+          helperText="Project limit or higher"
           label="Latency alerts"
           tone={slowRequests ? "warning" : "default"}
           value={slowRequests}

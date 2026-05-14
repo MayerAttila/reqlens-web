@@ -5,8 +5,8 @@ import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
 import {
+  defaultLatencyErrorThresholdMs,
   isSlowRequest,
-  slowRequestThresholdMs
 } from "../../../../components/ui/request-badges";
 import { CreateProjectModal } from "./create-project-modal";
 import { ProjectCard } from "./project-card";
@@ -20,6 +20,11 @@ export type Project = {
   hasApiKey: boolean;
   invites: ProjectInvite[];
   members: ProjectMember[];
+  settings: ProjectSettings;
+};
+
+export type ProjectSettings = {
+  latencyErrorThresholdMs: number;
 };
 
 export type ProjectInvite = {
@@ -133,13 +138,16 @@ export function ProjectsPanel() {
     for (const project of projects) {
       const logs =
         projectLogs.find((item) => item.projectId === project.id)?.logs ?? [];
+      const latencyThresholdMs = project.settings.latencyErrorThresholdMs;
       const sortedLogs = [...logs].sort(
         (first, second) =>
           new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
       );
       const latestLog = sortedLogs[0];
       const errorCount = logs.filter((log) => log.statusCode >= 400).length;
-      const slowCount = logs.filter((log) => isSlowRequest(log.durationMs)).length;
+      const slowCount = logs.filter((log) =>
+        isSlowRequest(log.durationMs, latencyThresholdMs)
+      ).length;
 
       stats.set(project.id, {
         errorCount,
@@ -180,7 +188,7 @@ export function ProjectsPanel() {
       { label: "Projects", value: projects.length },
       { label: "Total requests", value: totalRequests },
       {
-        helperText: `${slowRequestThresholdMs} ms or higher`,
+        helperText: "Project limit or higher",
         label: "Projects to watch",
         tone: projectsWithSlowCalls ? "danger" as const : "default" as const,
         value: projectsWithSlowCalls
@@ -369,7 +377,8 @@ function normalizeProject(project: Project): Project {
     members: (project.members ?? []).map((member) => ({
       ...member,
       role: member.role ?? "viewer"
-    }))
+    })),
+    settings: normalizeProjectSettings(project.settings)
   };
 }
 
@@ -384,4 +393,11 @@ function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
   }
 
   return "viewer";
+}
+
+function normalizeProjectSettings(settings: Project["settings"] | undefined) {
+  return {
+    latencyErrorThresholdMs:
+      settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
+  };
 }

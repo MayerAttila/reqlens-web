@@ -7,12 +7,16 @@ import { FiArrowLeft } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
-import { isSlowRequest } from "../../../../components/ui/request-badges";
+import {
+  defaultLatencyErrorThresholdMs,
+  isSlowRequest
+} from "../../../../components/ui/request-badges";
 import { TextInput } from "../../../../components/ui/text-input";
 import type {
   Project,
   ProjectInvite,
   ProjectMemberRole,
+  ProjectSettings,
   ProjectStats
 } from "./projects-panel";
 
@@ -83,7 +87,12 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     }
   }
 
-  const stats = useMemo(() => getProjectStats(logs), [logs]);
+  const latencyThresholdForStats =
+    project?.settings.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs;
+  const stats = useMemo(
+    () => getProjectStats(logs, latencyThresholdForStats),
+    [latencyThresholdForStats, logs]
+  );
 
   async function copyApiKey() {
     if (!project) {
@@ -213,6 +222,58 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
         autoClose: 3200,
         isLoading: false,
         render: "Project saved.",
+        type: "success"
+      });
+    } catch {
+      toast.update(toastId, {
+        autoClose: 4200,
+        isLoading: false,
+        render: "Could not reach the API server.",
+        type: "error"
+      });
+    }
+  }
+
+  async function updateProjectSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!project) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const latencyErrorThresholdMs = Number(formData.get("latencyErrorThresholdMs"));
+    const toastId = toast.loading("Saving settings...");
+
+    try {
+      const response = await fetch(`${apiUrl}/projects/${project.id}/settings`, {
+        body: JSON.stringify({ latencyErrorThresholdMs }),
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        method: "PATCH"
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        settings?: ProjectSettings;
+      };
+
+      if (!response.ok || !data.settings) {
+        toast.update(toastId, {
+          autoClose: 4200,
+          isLoading: false,
+          render: data.error ?? "Could not save settings.",
+          type: "error"
+        });
+        return;
+      }
+
+      setProject((current) =>
+        current ? { ...current, settings: data.settings! } : current
+      );
+      toast.update(toastId, {
+        autoClose: 3200,
+        isLoading: false,
+        render: "Settings saved.",
         type: "success"
       });
     } catch {
@@ -439,6 +500,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     );
   }
 
+  const latencyThresholdMs = project.settings.latencyErrorThresholdMs;
   const canCopyApiKey =
     project.accessRole === "owner" ||
     project.accessRole === "admin" ||
@@ -477,14 +539,107 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
       <MetricGrid
         blocks={[
           { label: "Requests", value: stats.requestCount },
-          { label: "Latency alerts", value: stats.slowCount },
+          {
+            helperText: `${latencyThresholdMs} ms or higher`,
+            label: "Latency alerts",
+            value: stats.slowCount
+          },
           { label: "Errors", tone: "danger", value: stats.errorCount },
           { label: "Collaborators", value: project.members.length }
         ]}
       />
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="rounded-3xl bg-panel p-6">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_28rem]">
+        <div className="grid gap-4">
+          <div className="rounded-3xl bg-panel p-6">
+            <h2 className="text-2xl font-black">Project details</h2>
+            <p className="mt-2 text-sm text-muted">
+              Edit the name and short description shown across the dashboard.
+            </p>
+
+            {canManageProject ? (
+              <form
+                className="mt-6 grid gap-4"
+                key={project.id}
+                onSubmit={updateProjectDetails}
+              >
+                <TextInput
+                  defaultValue={project.name}
+                  name="name"
+                  placeholder="Project name"
+                  required
+                />
+                <label className="grid gap-2">
+                  <span className="sr-only">Description</span>
+                  <textarea
+                    className="min-h-28 resize-none rounded-2xl border border-line bg-panel-strong px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-primary"
+                    defaultValue={project.description ?? ""}
+                    maxLength={240}
+                    name="description"
+                    placeholder="Short project description"
+                  />
+                </label>
+                <Button type="submit">Save details</Button>
+              </form>
+            ) : (
+              <p className="mt-6 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
+                Shared with you. Only owners and admins can edit project details.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-3xl bg-panel p-6">
+            <h2 className="text-2xl font-black">Latency settings</h2>
+            <p className="mt-2 text-sm text-muted">
+              Requests at or above this limit count as latency alerts.
+            </p>
+
+            {canManageProject ? (
+              <form
+                className="mt-6 grid gap-4"
+                key={`${project.id}-${project.settings.latencyErrorThresholdMs}`}
+                onSubmit={updateProjectSettings}
+              >
+                <TextInput
+                  defaultValue={project.settings.latencyErrorThresholdMs}
+                  max={60000}
+                  min={1}
+                  name="latencyErrorThresholdMs"
+                  placeholder="Latency limit in ms"
+                  required
+                  type="number"
+                />
+                <Button type="submit">Save latency limit</Button>
+              </form>
+            ) : (
+              <p className="mt-6 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
+                Current limit: {project.settings.latencyErrorThresholdMs} ms.
+              </p>
+            )}
+          </div>
+
+          {canManageProject ? (
+            <div className="rounded-3xl bg-panel p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-black">Danger zone</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Permanently remove this project and its logs.
+                  </p>
+                </div>
+                <button
+                  className="rounded-2xl bg-red-500/15 px-5 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/25"
+                  onClick={() => void deleteProject()}
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <aside className="rounded-3xl bg-panel p-6">
           <h2 className="text-2xl font-black">Members</h2>
           <p className="mt-1 text-sm text-muted">
             Manage collaborators and pending invites.
@@ -529,65 +684,6 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               showActions={canManageProject}
             />
           </div>
-        </div>
-
-        <aside className="grid gap-4">
-          <div className="rounded-3xl bg-panel p-6">
-            <h2 className="text-2xl font-black">Project details</h2>
-            <p className="mt-2 text-sm text-muted">
-              Edit the name and short description shown across the dashboard.
-            </p>
-
-            {canManageProject ? (
-              <form
-                className="mt-6 grid gap-4"
-                key={project.id}
-                onSubmit={updateProjectDetails}
-              >
-                <TextInput
-                  defaultValue={project.name}
-                  name="name"
-                  placeholder="Project name"
-                  required
-                />
-                <label className="grid gap-2">
-                  <span className="sr-only">Description</span>
-                  <textarea
-                    className="min-h-28 resize-none rounded-2xl border border-line bg-panel-strong px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-primary"
-                    defaultValue={project.description ?? ""}
-                    maxLength={240}
-                    name="description"
-                    placeholder="Short project description"
-                  />
-                </label>
-                <Button type="submit">Save details</Button>
-              </form>
-            ) : (
-              <p className="mt-6 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
-                Shared with you. Only owners and admins can edit project details.
-              </p>
-            )}
-          </div>
-
-          {canManageProject ? (
-            <div className="rounded-3xl bg-panel p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-black">Danger zone</h2>
-                  <p className="mt-1 text-sm text-muted">
-                    Permanently remove this project and its logs.
-                  </p>
-                </div>
-                <button
-                  className="rounded-2xl bg-red-500/15 px-5 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/25"
-                  onClick={() => void deleteProject()}
-                  type="button"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ) : null}
         </aside>
       </section>
     </div>
@@ -663,14 +759,16 @@ function PeopleList({
   );
 }
 
-function getProjectStats(logs: RequestLog[]): ProjectStats {
+function getProjectStats(logs: RequestLog[], latencyThresholdMs: number): ProjectStats {
   const sortedLogs = [...logs].sort(
     (first, second) =>
       new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
   );
   const latestLog = sortedLogs[0];
   const errorCount = logs.filter((log) => log.statusCode >= 400).length;
-  const slowCount = logs.filter((log) => isSlowRequest(log.durationMs)).length;
+  const slowCount = logs.filter((log) =>
+    isSlowRequest(log.durationMs, latencyThresholdMs)
+  ).length;
 
   return {
     errorCount,
@@ -697,7 +795,8 @@ function normalizeProject(project: Project): Project {
     members: (project.members ?? []).map((member) => ({
       ...member,
       role: member.role ?? "viewer"
-    }))
+    })),
+    settings: normalizeProjectSettings(project.settings)
   };
 }
 
@@ -712,4 +811,11 @@ function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
   }
 
   return "viewer";
+}
+
+function normalizeProjectSettings(settings: Project["settings"] | undefined) {
+  return {
+    latencyErrorThresholdMs:
+      settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
+  };
 }
