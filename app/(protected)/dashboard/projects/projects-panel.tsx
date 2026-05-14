@@ -20,13 +20,32 @@ export type Project = {
   hasApiKey: boolean;
   invites: ProjectInvite[];
   members: ProjectMember[];
+  owner: ProjectUser | null;
   settings: ProjectSettings;
 };
 
+export type EmailAlertAudience =
+  | "admin_and_above"
+  | "all"
+  | "custom"
+  | "developer_and_above";
+
 export type ProjectSettings = {
+  errorEmailAudience: EmailAlertAudience;
+  errorEmailCustomUserIds: string[];
+  errorEmailEnabled: boolean;
+  errorEmailRecipient: string | null;
+  latencyEmailAudience: EmailAlertAudience;
+  latencyEmailCustomUserIds: string[];
   latencyEmailEnabled: boolean;
   latencyEmailRecipient: string | null;
   latencyErrorThresholdMs: number;
+};
+
+export type ProjectUser = {
+  email: string;
+  id: string;
+  name: string;
 };
 
 export type ProjectInvite = {
@@ -399,9 +418,30 @@ function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
 
 function normalizeProjectSettings(settings: Project["settings"] | undefined) {
   return {
+    errorEmailAudience: normalizeEmailAlertAudience(settings?.errorEmailAudience),
+    errorEmailCustomUserIds: settings?.errorEmailCustomUserIds ?? [],
+    errorEmailEnabled: settings?.errorEmailEnabled ?? false,
+    errorEmailRecipient: settings?.errorEmailRecipient ?? null,
+    latencyEmailAudience: normalizeEmailAlertAudience(settings?.latencyEmailAudience),
+    latencyEmailCustomUserIds: settings?.latencyEmailCustomUserIds ?? [],
     latencyEmailEnabled: settings?.latencyEmailEnabled ?? false,
     latencyEmailRecipient: settings?.latencyEmailRecipient ?? null,
     latencyErrorThresholdMs:
       settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
   };
+}
+
+function normalizeEmailAlertAudience(
+  audience: Project["settings"]["latencyEmailAudience"] | string | undefined
+): EmailAlertAudience {
+  if (
+    audience === "all" ||
+    audience === "admin_and_above" ||
+    audience === "developer_and_above" ||
+    audience === "custom"
+  ) {
+    return audience;
+  }
+
+  return "admin_and_above";
 }

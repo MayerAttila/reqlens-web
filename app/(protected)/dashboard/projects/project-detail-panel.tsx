@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft } from "react-icons/fi";
@@ -14,8 +14,10 @@ import {
 import { TextInput } from "../../../../components/ui/text-input";
 import type {
   Project,
+  EmailAlertAudience,
   ProjectInvite,
   ProjectMemberRole,
+  ProjectUser,
   ProjectSettings,
   ProjectStats
 } from "./projects-panel";
@@ -52,6 +54,11 @@ const emptyProjectStats: ProjectStats = {
 export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [customPicker, setCustomPicker] = useState<"error" | "latency" | null>(
+    null
+  );
+  const [errorCustomUserIds, setErrorCustomUserIds] = useState<string[]>([]);
+  const [latencyCustomUserIds, setLatencyCustomUserIds] = useState<string[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [logs, setLogs] = useState<RequestLog[]>([]);
 
@@ -77,6 +84,8 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
         null;
 
       setProject(foundProject);
+      setLatencyCustomUserIds(foundProject?.settings.latencyEmailCustomUserIds ?? []);
+      setErrorCustomUserIds(foundProject?.settings.errorEmailCustomUserIds ?? []);
       setLogs(
         logsData.projects.find((item) => item.projectId === projectId)?.logs ?? []
       );
@@ -242,18 +251,34 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     }
 
     const formData = new FormData(event.currentTarget);
+    const errorEmailEnabled = formData.get("errorEmailEnabled") === "on";
+    const errorEmailAudience = String(
+      formData.get("errorEmailAudience") ?? "admin_and_above"
+    ) as EmailAlertAudience;
+    const errorEmailCustomUserIds = formData
+      .getAll("errorEmailCustomUserIds")
+      .map(String);
     const latencyEmailEnabled = formData.get("latencyEmailEnabled") === "on";
-    const latencyEmailRecipient = String(
-      formData.get("latencyEmailRecipient") ?? ""
-    ).trim();
+    const latencyEmailAudience = String(
+      formData.get("latencyEmailAudience") ?? "admin_and_above"
+    ) as EmailAlertAudience;
+    const latencyEmailCustomUserIds = formData
+      .getAll("latencyEmailCustomUserIds")
+      .map(String);
     const latencyErrorThresholdMs = Number(formData.get("latencyErrorThresholdMs"));
     const toastId = toast.loading("Saving settings...");
 
     try {
       const response = await fetch(`${apiUrl}/projects/${project.id}/settings`, {
         body: JSON.stringify({
+          errorEmailAudience,
+          errorEmailCustomUserIds,
+          errorEmailEnabled,
+          errorEmailRecipient: null,
+          latencyEmailAudience,
+          latencyEmailCustomUserIds,
           latencyEmailEnabled,
-          latencyEmailRecipient: latencyEmailRecipient || null,
+          latencyEmailRecipient: null,
           latencyErrorThresholdMs
         }),
         credentials: "include",
@@ -597,56 +622,82 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
           </div>
 
           <div className="rounded-3xl bg-panel p-6">
-            <h2 className="text-2xl font-black">Latency settings</h2>
+            <h2 className="text-2xl font-black">Alert settings</h2>
             <p className="mt-2 text-sm text-muted">
-              Requests at or above this limit count as latency alerts. Email
-              notifications send one summary per ingest batch.
+              Configure project-level thresholds and email summaries for
+              problematic API calls.
             </p>
 
             {canManageProject ? (
               <form
-                className="mt-6 grid gap-4"
+                className="mt-6 grid gap-5"
                 key={`${project.id}-${project.settings.latencyErrorThresholdMs}`}
                 onSubmit={updateProjectSettings}
               >
-                <TextInput
-                  defaultValue={project.settings.latencyErrorThresholdMs}
-                  max={60000}
-                  min={1}
-                  name="latencyErrorThresholdMs"
-                  placeholder="Latency limit in ms"
-                  required
-                  type="number"
-                />
-                <label className="flex items-start gap-3 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
-                  <input
-                    className="mt-1 size-4 accent-primary"
-                    defaultChecked={project.settings.latencyEmailEnabled}
-                    name="latencyEmailEnabled"
-                    type="checkbox"
-                  />
-                  <span>
-                    <span className="block font-black text-foreground">
-                      Email latency alerts
-                    </span>
-                    <span>
-                      Send an email when ingested calls exceed this project limit.
-                    </span>
-                  </span>
-                </label>
-                <TextInput
-                  defaultValue={project.settings.latencyEmailRecipient ?? ""}
-                  name="latencyEmailRecipient"
-                  placeholder="Alert email, defaults to owner"
-                  type="email"
-                />
-                <Button type="submit">Save latency limit</Button>
+                <div className="rounded-3xl bg-panel-strong p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-sm font-black text-foreground">
+                        Latency alert limit
+                      </p>
+                      <p className="mt-1 text-sm text-muted">
+                        Calls at or above this value are treated as latency alerts.
+                      </p>
+                    </div>
+                    <label className="flex w-full max-w-44 items-center gap-3 rounded-2xl bg-background/45 px-4 py-3">
+                      <input
+                        className="min-w-0 flex-1 bg-transparent text-2xl font-black text-foreground outline-none"
+                        defaultValue={project.settings.latencyErrorThresholdMs}
+                        max={60000}
+                        min={1}
+                        name="latencyErrorThresholdMs"
+                        required
+                        type="number"
+                      />
+                      <span className="text-sm font-black text-muted">ms</span>
+                    </label>
+                  </div>
+                </div>
+
+                <NotificationSetting
+                  audienceName="latencyEmailAudience"
+                  checkboxName="latencyEmailEnabled"
+                  customUserIds={latencyCustomUserIds}
+                  customUserIdsName="latencyEmailCustomUserIds"
+                  defaultChecked={project.settings.latencyEmailEnabled}
+                  defaultAudience={project.settings.latencyEmailAudience}
+                  eyebrow="Latency emails"
+                  onCustomize={() => setCustomPicker("latency")}
+                  title="Email latency alerts"
+                >
+                  Send one summary email when an ingest batch includes calls over
+                  this project latency limit.
+                </NotificationSetting>
+
+                <NotificationSetting
+                  audienceName="errorEmailAudience"
+                  checkboxName="errorEmailEnabled"
+                  customUserIds={errorCustomUserIds}
+                  customUserIdsName="errorEmailCustomUserIds"
+                  defaultChecked={project.settings.errorEmailEnabled}
+                  defaultAudience={project.settings.errorEmailAudience}
+                  eyebrow="Error emails"
+                  onCustomize={() => setCustomPicker("error")}
+                  title="Email errored API calls"
+                >
+                  Send one summary email when an ingest batch includes calls with
+                  status 400 or higher.
+                </NotificationSetting>
+
+                <Button type="submit">Save alert settings</Button>
               </form>
             ) : (
               <p className="mt-6 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
                 Current limit: {project.settings.latencyErrorThresholdMs} ms.
-                Email alerts are{" "}
+                Latency emails are{" "}
                 {project.settings.latencyEmailEnabled ? "enabled" : "disabled"}.
+                Error emails are{" "}
+                {project.settings.errorEmailEnabled ? "enabled" : "disabled"}.
               </p>
             )}
           </div>
@@ -671,6 +722,30 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
             </div>
           ) : null}
         </div>
+
+        {customPicker ? (
+          <CustomAlertUsersModal
+            onClose={() => setCustomPicker(null)}
+            onSave={(selectedIds) => {
+              if (customPicker === "latency") {
+                setLatencyCustomUserIds(selectedIds);
+              } else {
+                setErrorCustomUserIds(selectedIds);
+              }
+
+              setCustomPicker(null);
+            }}
+            selectedUserIds={
+              customPicker === "latency" ? latencyCustomUserIds : errorCustomUserIds
+            }
+            title={
+              customPicker === "latency"
+                ? "Latency alert recipients"
+                : "Error alert recipients"
+            }
+            users={getProjectUsers(project)}
+          />
+        ) : null}
 
         <aside className="rounded-3xl bg-panel p-6">
           <h2 className="text-2xl font-black">Members</h2>
@@ -792,6 +867,162 @@ function PeopleList({
   );
 }
 
+function NotificationSetting({
+  audienceName,
+  checkboxName,
+  children,
+  customUserIds,
+  customUserIdsName,
+  defaultChecked,
+  defaultAudience,
+  eyebrow,
+  onCustomize,
+  title
+}: {
+  audienceName: string;
+  checkboxName: string;
+  children: ReactNode;
+  customUserIds: string[];
+  customUserIdsName: string;
+  defaultChecked: boolean;
+  defaultAudience: EmailAlertAudience;
+  eyebrow: string;
+  onCustomize: () => void;
+  title: string;
+}) {
+  return (
+    <div className="rounded-3xl bg-panel-strong p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">
+            {eyebrow}
+          </p>
+          <h3 className="mt-2 text-lg font-black">{title}</h3>
+          <p className="mt-1 text-sm text-muted">{children}</p>
+        </div>
+        <label className="flex shrink-0 cursor-pointer items-center gap-3 rounded-full bg-background/45 px-3 py-2 text-sm font-black text-foreground">
+          <input
+            className="size-4 accent-primary"
+            defaultChecked={defaultChecked}
+            name={checkboxName}
+            type="checkbox"
+          />
+          Enabled
+        </label>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <select
+          className="rounded-2xl border border-line bg-background/45 px-4 py-3 text-sm font-black text-foreground outline-none transition focus:border-primary"
+          defaultValue={defaultAudience}
+          name={audienceName}
+        >
+          <option value="all">All users</option>
+          <option value="admin_and_above">Admin and above</option>
+          <option value="developer_and_above">Developer and above</option>
+          <option value="custom">Custom users</option>
+        </select>
+        <button
+          className="rounded-2xl bg-surface px-4 py-3 text-sm font-black text-foreground transition hover:bg-surface-soft"
+          onClick={onCustomize}
+          type="button"
+        >
+          Choose users ({customUserIds.length})
+        </button>
+      </div>
+      {customUserIds.map((userId) => (
+        <input
+          key={userId}
+          name={customUserIdsName}
+          type="hidden"
+          value={userId}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CustomAlertUsersModal({
+  onClose,
+  onSave,
+  selectedUserIds,
+  title,
+  users
+}: {
+  onClose: () => void;
+  onSave: (selectedIds: string[]) => void;
+  selectedUserIds: string[];
+  title: string;
+  users: ProjectUser[];
+}) {
+  const [draftUserIds, setDraftUserIds] = useState(selectedUserIds);
+
+  function toggleUser(userId: string) {
+    setDraftUserIds((current) =>
+      current.includes(userId)
+        ? current.filter((id) => id !== userId)
+        : [...current, userId]
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-lg rounded-3xl bg-panel p-6 shadow-2xl shadow-black/40">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">
+              Custom recipients
+            </p>
+            <h2 className="mt-2 text-2xl font-black">{title}</h2>
+            <p className="mt-1 text-sm text-muted">
+              Select which project users should receive this alert email.
+            </p>
+          </div>
+          <button
+            className="rounded-2xl bg-surface px-3 py-2 text-sm font-black text-muted transition hover:text-foreground"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="mt-6 grid max-h-80 gap-2 overflow-y-auto">
+          {users.map((user) => (
+            <label
+              className="flex cursor-pointer items-center gap-3 rounded-2xl bg-panel-strong px-4 py-3"
+              key={user.id}
+            >
+              <input
+                checked={draftUserIds.includes(user.id)}
+                className="size-4 accent-primary"
+                onChange={() => toggleUser(user.id)}
+                type="checkbox"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black text-foreground">
+                  {user.name}
+                </span>
+                <span className="block truncate text-sm text-muted">
+                  {user.email}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <Button onClick={() => onSave(draftUserIds)} type="button">
+            Save recipients
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getProjectStats(logs: RequestLog[], latencyThresholdMs: number): ProjectStats {
   const sortedLogs = [...logs].sort(
     (first, second) =>
@@ -848,9 +1079,46 @@ function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
 
 function normalizeProjectSettings(settings: Project["settings"] | undefined) {
   return {
+    errorEmailAudience: normalizeEmailAlertAudience(settings?.errorEmailAudience),
+    errorEmailCustomUserIds: settings?.errorEmailCustomUserIds ?? [],
+    errorEmailEnabled: settings?.errorEmailEnabled ?? false,
+    errorEmailRecipient: settings?.errorEmailRecipient ?? null,
+    latencyEmailAudience: normalizeEmailAlertAudience(settings?.latencyEmailAudience),
+    latencyEmailCustomUserIds: settings?.latencyEmailCustomUserIds ?? [],
     latencyEmailEnabled: settings?.latencyEmailEnabled ?? false,
     latencyEmailRecipient: settings?.latencyEmailRecipient ?? null,
     latencyErrorThresholdMs:
       settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
   };
+}
+
+function normalizeEmailAlertAudience(
+  audience: Project["settings"]["latencyEmailAudience"] | string | undefined
+): EmailAlertAudience {
+  if (
+    audience === "all" ||
+    audience === "admin_and_above" ||
+    audience === "developer_and_above" ||
+    audience === "custom"
+  ) {
+    return audience;
+  }
+
+  return "admin_and_above";
+}
+
+function getProjectUsers(project: Project) {
+  const users = [
+    ...(project.owner ? [project.owner] : []),
+    ...project.members.map((member) => ({
+      email: member.email,
+      id: member.id,
+      name: member.name
+    }))
+  ];
+
+  return users.filter(
+    (user, index, current) =>
+      current.findIndex((item) => item.id === user.id) === index
+  );
 }

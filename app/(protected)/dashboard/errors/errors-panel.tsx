@@ -28,6 +28,12 @@ type ProjectLogs = {
   projectName: string;
   hasApiKey: boolean;
   settings?: {
+    errorEmailAudience: string;
+    errorEmailCustomUserIds: string[];
+    errorEmailEnabled: boolean;
+    errorEmailRecipient: string | null;
+    latencyEmailAudience: string;
+    latencyEmailCustomUserIds: string[];
     latencyEmailEnabled: boolean;
     latencyEmailRecipient: string | null;
     latencyErrorThresholdMs: number;
