@@ -3,7 +3,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowLeft, FiChevronDown } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
@@ -12,6 +12,7 @@ import {
   isSlowRequest
 } from "../../../../components/ui/request-badges";
 import { TextInput } from "../../../../components/ui/text-input";
+import { ToggleInput } from "../../../../components/ui/toggle-input";
 import type {
   Project,
   EmailAlertAudience,
@@ -57,7 +58,11 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
   const [customPicker, setCustomPicker] = useState<"error" | "latency" | null>(
     null
   );
+  const [errorAudience, setErrorAudience] =
+    useState<EmailAlertAudience>("admin_and_above");
   const [errorCustomUserIds, setErrorCustomUserIds] = useState<string[]>([]);
+  const [latencyAudience, setLatencyAudience] =
+    useState<EmailAlertAudience>("admin_and_above");
   const [latencyCustomUserIds, setLatencyCustomUserIds] = useState<string[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [logs, setLogs] = useState<RequestLog[]>([]);
@@ -84,7 +89,11 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
         null;
 
       setProject(foundProject);
+      setLatencyAudience(
+        foundProject?.settings.latencyEmailAudience ?? "admin_and_above"
+      );
       setLatencyCustomUserIds(foundProject?.settings.latencyEmailCustomUserIds ?? []);
+      setErrorAudience(foundProject?.settings.errorEmailAudience ?? "admin_and_above");
       setErrorCustomUserIds(foundProject?.settings.errorEmailCustomUserIds ?? []);
       setLogs(
         logsData.projects.find((item) => item.projectId === projectId)?.logs ?? []
@@ -252,16 +261,12 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
 
     const formData = new FormData(event.currentTarget);
     const errorEmailEnabled = formData.get("errorEmailEnabled") === "on";
-    const errorEmailAudience = String(
-      formData.get("errorEmailAudience") ?? "admin_and_above"
-    ) as EmailAlertAudience;
+    const errorEmailAudience = errorAudience;
     const errorEmailCustomUserIds = formData
       .getAll("errorEmailCustomUserIds")
       .map(String);
     const latencyEmailEnabled = formData.get("latencyEmailEnabled") === "on";
-    const latencyEmailAudience = String(
-      formData.get("latencyEmailAudience") ?? "admin_and_above"
-    ) as EmailAlertAudience;
+    const latencyEmailAudience = latencyAudience;
     const latencyEmailCustomUserIds = formData
       .getAll("latencyEmailCustomUserIds")
       .map(String);
@@ -665,9 +670,15 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                   customUserIds={latencyCustomUserIds}
                   customUserIdsName="latencyEmailCustomUserIds"
                   defaultChecked={project.settings.latencyEmailEnabled}
-                  defaultAudience={project.settings.latencyEmailAudience}
                   eyebrow="Latency emails"
+                  onAudienceChange={setLatencyAudience}
                   onCustomize={() => setCustomPicker("latency")}
+                  recipientCount={getAlertRecipientCount({
+                    audience: latencyAudience,
+                    customUserIds: latencyCustomUserIds,
+                    users: getProjectUsers(project)
+                  })}
+                  selectedAudience={latencyAudience}
                   title="Email latency alerts"
                 >
                   Send one summary email when an ingest batch includes calls over
@@ -680,9 +691,15 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                   customUserIds={errorCustomUserIds}
                   customUserIdsName="errorEmailCustomUserIds"
                   defaultChecked={project.settings.errorEmailEnabled}
-                  defaultAudience={project.settings.errorEmailAudience}
                   eyebrow="Error emails"
+                  onAudienceChange={setErrorAudience}
                   onCustomize={() => setCustomPicker("error")}
+                  recipientCount={getAlertRecipientCount({
+                    audience: errorAudience,
+                    customUserIds: errorCustomUserIds,
+                    users: getProjectUsers(project)
+                  })}
+                  selectedAudience={errorAudience}
                   title="Email errored API calls"
                 >
                   Send one summary email when an ingest batch includes calls with
@@ -738,6 +755,14 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
             selectedUserIds={
               customPicker === "latency" ? latencyCustomUserIds : errorCustomUserIds
             }
+            suggestedUserIds={getSuggestedRecipientIds({
+              audience: customPicker === "latency" ? latencyAudience : errorAudience,
+              customUserIds:
+                customPicker === "latency"
+                  ? latencyCustomUserIds
+                  : errorCustomUserIds,
+              users: getProjectUsers(project)
+            })}
             title={
               customPicker === "latency"
                 ? "Latency alert recipients"
@@ -874,9 +899,11 @@ function NotificationSetting({
   customUserIds,
   customUserIdsName,
   defaultChecked,
-  defaultAudience,
   eyebrow,
+  onAudienceChange,
   onCustomize,
+  recipientCount,
+  selectedAudience,
   title
 }: {
   audienceName: string;
@@ -885,9 +912,11 @@ function NotificationSetting({
   customUserIds: string[];
   customUserIdsName: string;
   defaultChecked: boolean;
-  defaultAudience: EmailAlertAudience;
   eyebrow: string;
+  onAudienceChange: (audience: EmailAlertAudience) => void;
   onCustomize: () => void;
+  recipientCount: number;
+  selectedAudience: EmailAlertAudience;
   title: string;
 }) {
   return (
@@ -900,27 +929,17 @@ function NotificationSetting({
           <h3 className="mt-2 text-lg font-black">{title}</h3>
           <p className="mt-1 text-sm text-muted">{children}</p>
         </div>
-        <label className="flex shrink-0 cursor-pointer items-center gap-3 rounded-full bg-background/45 px-3 py-2 text-sm font-black text-foreground">
-          <input
-            className="size-4 accent-primary"
-            defaultChecked={defaultChecked}
-            name={checkboxName}
-            type="checkbox"
-          />
-          Enabled
-        </label>
+        <ToggleInput
+          defaultChecked={defaultChecked}
+          name={checkboxName}
+        />
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <select
-          className="rounded-2xl border border-line bg-background/45 px-4 py-3 text-sm font-black text-foreground outline-none transition focus:border-primary"
-          defaultValue={defaultAudience}
-          name={audienceName}
-        >
-          <option value="all">All users</option>
-          <option value="admin_and_above">Admin and above</option>
-          <option value="developer_and_above">Developer and above</option>
-          <option value="custom">Custom users</option>
-        </select>
+        <CustomAudienceSelect
+          inputName={audienceName}
+          onChange={onAudienceChange}
+          value={selectedAudience}
+        />
         <button
           className="rounded-2xl bg-surface px-4 py-3 text-sm font-black text-foreground transition hover:bg-surface-soft"
           onClick={onCustomize}
@@ -929,6 +948,10 @@ function NotificationSetting({
           Choose users ({customUserIds.length})
         </button>
       </div>
+      <p className="mt-3 text-xs font-black text-muted">
+        {recipientCount} user{recipientCount === 1 ? "" : "s"} will receive this
+        email.
+      </p>
       {customUserIds.map((userId) => (
         <input
           key={userId}
@@ -941,20 +964,34 @@ function NotificationSetting({
   );
 }
 
+const emailAudienceOptions: Array<{
+  label: string;
+  value: EmailAlertAudience;
+}> = [
+  { label: "All users", value: "all" },
+  { label: "Admin and above", value: "admin_and_above" },
+  { label: "Developer and above", value: "developer_and_above" },
+  { label: "Custom users", value: "custom" }
+];
+
 function CustomAlertUsersModal({
   onClose,
   onSave,
   selectedUserIds,
+  suggestedUserIds,
   title,
   users
 }: {
   onClose: () => void;
   onSave: (selectedIds: string[]) => void;
   selectedUserIds: string[];
+  suggestedUserIds: string[];
   title: string;
   users: ProjectUser[];
 }) {
-  const [draftUserIds, setDraftUserIds] = useState(selectedUserIds);
+  const [draftUserIds, setDraftUserIds] = useState(
+    selectedUserIds.length ? selectedUserIds : suggestedUserIds
+  );
 
   function toggleUser(userId: string) {
     setDraftUserIds((current) =>
@@ -1019,6 +1056,67 @@ function CustomAlertUsersModal({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CustomAudienceSelect({
+  inputName,
+  onChange,
+  value
+}: {
+  inputName: string;
+  onChange: (value: EmailAlertAudience) => void;
+  value: EmailAlertAudience;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption =
+    emailAudienceOptions.find((option) => option.value === value) ??
+    emailAudienceOptions[1];
+
+  return (
+    <div className="relative">
+      <input name={inputName} type="hidden" value={value} />
+      <button
+        className={`flex h-12 w-full items-center justify-between gap-3 rounded-2xl border px-4 text-left text-sm font-black outline-none transition ${
+          isOpen
+            ? "border-primary bg-primary/10 text-primary-soft"
+            : "border-line bg-background/45 text-foreground hover:border-primary/40"
+        }`}
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span>{selectedOption.label}</span>
+        <FiChevronDown
+          className={`size-4 shrink-0 transition ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {isOpen ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-2xl border border-primary/35 bg-panel shadow-2xl shadow-black/30">
+          {emailAudienceOptions.map((option) => {
+            const selected = option.value === value;
+
+            return (
+              <button
+                className={`block w-full px-4 py-3 text-left text-sm font-black transition ${
+                  selected
+                    ? "bg-primary/20 text-primary-soft"
+                    : "text-foreground hover:bg-surface"
+                }`}
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                type="button"
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1109,11 +1207,14 @@ function normalizeEmailAlertAudience(
 
 function getProjectUsers(project: Project) {
   const users = [
-    ...(project.owner ? [project.owner] : []),
+    ...(project.owner
+      ? [{ ...project.owner, role: "owner" as const }]
+      : []),
     ...project.members.map((member) => ({
       email: member.email,
       id: member.id,
-      name: member.name
+      name: member.name,
+      role: member.role
     }))
   ];
 
@@ -1121,4 +1222,49 @@ function getProjectUsers(project: Project) {
     (user, index, current) =>
       current.findIndex((item) => item.id === user.id) === index
   );
+}
+
+function getAlertRecipientCount({
+  audience,
+  customUserIds,
+  users
+}: {
+  audience: EmailAlertAudience;
+  customUserIds: string[];
+  users: Array<ProjectUser & { role: Project["accessRole"] }>;
+}) {
+  return getSuggestedRecipientIds({ audience, customUserIds, users }).length;
+}
+
+function getSuggestedRecipientIds({
+  audience,
+  customUserIds,
+  users
+}: {
+  audience: EmailAlertAudience;
+  customUserIds: string[];
+  users: Array<ProjectUser & { role: Project["accessRole"] }>;
+}) {
+  if (audience === "custom") {
+    return customUserIds;
+  }
+
+  if (audience === "all") {
+    return users.map((user) => user.id);
+  }
+
+  if (audience === "developer_and_above") {
+    return users
+      .filter(
+        (user) =>
+          user.role === "owner" ||
+          user.role === "admin" ||
+          user.role === "developer"
+      )
+      .map((user) => user.id);
+  }
+
+  return users
+    .filter((user) => user.role === "owner" || user.role === "admin")
+    .map((user) => user.id);
 }
