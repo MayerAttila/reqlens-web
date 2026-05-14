@@ -242,12 +242,20 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     }
 
     const formData = new FormData(event.currentTarget);
+    const latencyEmailEnabled = formData.get("latencyEmailEnabled") === "on";
+    const latencyEmailRecipient = String(
+      formData.get("latencyEmailRecipient") ?? ""
+    ).trim();
     const latencyErrorThresholdMs = Number(formData.get("latencyErrorThresholdMs"));
     const toastId = toast.loading("Saving settings...");
 
     try {
       const response = await fetch(`${apiUrl}/projects/${project.id}/settings`, {
-        body: JSON.stringify({ latencyErrorThresholdMs }),
+        body: JSON.stringify({
+          latencyEmailEnabled,
+          latencyEmailRecipient: latencyEmailRecipient || null,
+          latencyErrorThresholdMs
+        }),
         credentials: "include",
         headers: { "content-type": "application/json" },
         method: "PATCH"
@@ -591,7 +599,8 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
           <div className="rounded-3xl bg-panel p-6">
             <h2 className="text-2xl font-black">Latency settings</h2>
             <p className="mt-2 text-sm text-muted">
-              Requests at or above this limit count as latency alerts.
+              Requests at or above this limit count as latency alerts. Email
+              notifications send one summary per ingest batch.
             </p>
 
             {canManageProject ? (
@@ -609,11 +618,35 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                   required
                   type="number"
                 />
+                <label className="flex items-start gap-3 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
+                  <input
+                    className="mt-1 size-4 accent-primary"
+                    defaultChecked={project.settings.latencyEmailEnabled}
+                    name="latencyEmailEnabled"
+                    type="checkbox"
+                  />
+                  <span>
+                    <span className="block font-black text-foreground">
+                      Email latency alerts
+                    </span>
+                    <span>
+                      Send an email when ingested calls exceed this project limit.
+                    </span>
+                  </span>
+                </label>
+                <TextInput
+                  defaultValue={project.settings.latencyEmailRecipient ?? ""}
+                  name="latencyEmailRecipient"
+                  placeholder="Alert email, defaults to owner"
+                  type="email"
+                />
                 <Button type="submit">Save latency limit</Button>
               </form>
             ) : (
               <p className="mt-6 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
                 Current limit: {project.settings.latencyErrorThresholdMs} ms.
+                Email alerts are{" "}
+                {project.settings.latencyEmailEnabled ? "enabled" : "disabled"}.
               </p>
             )}
           </div>
@@ -815,6 +848,8 @@ function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
 
 function normalizeProjectSettings(settings: Project["settings"] | undefined) {
   return {
+    latencyEmailEnabled: settings?.latencyEmailEnabled ?? false,
+    latencyEmailRecipient: settings?.latencyEmailRecipient ?? null,
     latencyErrorThresholdMs:
       settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
   };

@@ -29,6 +29,8 @@ type ProjectLogs = {
   projectName: string;
   hasApiKey: boolean;
   settings?: {
+    latencyEmailEnabled: boolean;
+    latencyEmailRecipient: string | null;
     latencyErrorThresholdMs: number;
   };
   logs: RequestLog[];

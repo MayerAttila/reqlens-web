@@ -24,6 +24,8 @@ export type Project = {
 };
 
 export type ProjectSettings = {
+  latencyEmailEnabled: boolean;
+  latencyEmailRecipient: string | null;
   latencyErrorThresholdMs: number;
 };
 
@@ -397,6 +399,8 @@ function normalizeAccessRole(role: Project["accessRole"] | string | undefined) {
 
 function normalizeProjectSettings(settings: Project["settings"] | undefined) {
   return {
+    latencyEmailEnabled: settings?.latencyEmailEnabled ?? false,
+    latencyEmailRecipient: settings?.latencyEmailRecipient ?? null,
     latencyErrorThresholdMs:
       settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
   };
