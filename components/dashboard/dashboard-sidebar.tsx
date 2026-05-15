@@ -113,37 +113,44 @@ export function DashboardSidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "md:w-20" : "md:w-72"}`}
       >
-        <div className="flex items-center justify-between px-4 py-5">
-          <Link
-            href="/dashboard"
-            onClick={() => setMobileOpen(false)}
-            className={`flex min-w-0 items-center gap-3 overflow-hidden transition ${
-              showLabels ? "opacity-100" : "opacity-0 md:w-0"
-            }`}
-          >
-            <Image
-              src="/images/logo.png"
-              alt="Reqlens"
-              width={44}
-              height={44}
-              priority
-              className="h-11 w-11 shrink-0 rounded-2xl object-cover"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-xs uppercase tracking-[0.22em] text-muted">
-                Reqlens
-              </p>
-              <h1 className="truncate text-base font-black text-foreground">
-                Dashboard
-              </h1>
-            </div>
-          </Link>
+        <div
+          className={`grid items-center gap-3 px-4 py-5 ${
+            showLabels ? "grid-cols-[44px_1fr_40px]" : "grid-cols-1"
+          }`}
+        >
+          {showLabels ? (
+            <>
+              <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+                <Image
+                  src="/images/logo.png"
+                  alt="Reqlens"
+                  width={44}
+                  height={44}
+                  priority
+                  className="h-11 w-11 shrink-0 rounded-2xl object-cover"
+                />
+              </Link>
+
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileOpen(false)}
+                className="min-w-0 text-center"
+              >
+                <p className="truncate text-xs uppercase tracking-[0.22em] text-muted">
+                  Reqlens
+                </p>
+                <h1 className="truncate text-base font-black text-foreground">
+                  Dashboard
+                </h1>
+              </Link>
+            </>
+          ) : null}
 
           <button
             type="button"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={toggleCollapsed}
-            className="hidden rounded-xl bg-surface p-2 text-muted transition hover:bg-surface-soft hover:text-foreground md:inline-flex"
+            className="hidden h-11 w-11 items-center justify-center justify-self-center rounded-xl bg-surface p-0 text-muted transition hover:bg-surface-soft hover:text-foreground md:inline-flex"
           >
             {collapsed ? (
               <FiChevronRight className="h-5 w-5" />
@@ -176,11 +183,15 @@ export function DashboardSidebar({
                 title={item.label}
                 aria-label={item.label}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold transition ${
+                className={`flex items-center gap-3 px-3 py-3 text-sm font-semibold transition ${
                   active
                     ? "bg-primary text-white shadow-lg shadow-primary/20"
                     : "text-muted hover:bg-surface hover:text-foreground"
-                } ${collapsed && !mobileOpen ? "justify-center" : ""}`}
+                } ${
+                  collapsed && !mobileOpen
+                    ? "mx-auto h-11 w-11 justify-center rounded-xl p-0"
+                    : "rounded-2xl"
+                }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 {showLabels ? (
@@ -197,11 +208,15 @@ export function DashboardSidebar({
             title="Settings"
             aria-label="Settings"
             onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold transition ${
+            className={`flex items-center gap-3 px-3 py-3 text-sm font-semibold transition ${
               activePath === "/dashboard/settings"
                 ? "bg-primary text-white shadow-lg shadow-primary/20"
                 : "bg-surface text-muted hover:bg-surface-soft hover:text-foreground"
-            } ${collapsed && !mobileOpen ? "justify-center" : ""}`}
+            } ${
+              collapsed && !mobileOpen
+                ? "mx-auto h-11 w-11 justify-center rounded-xl p-0"
+                : "rounded-2xl"
+            }`}
           >
             <FiSettings className="h-5 w-5 shrink-0" />
             {showLabels ? <span className="whitespace-nowrap">Settings</span> : null}
@@ -212,8 +227,10 @@ export function DashboardSidebar({
             onClick={handleSignOut}
             title="Sign out"
             aria-label="Sign out"
-            className={`flex w-full items-center gap-3 rounded-2xl bg-foreground px-3 py-3 text-sm font-black text-background transition hover:bg-primary-soft ${
-              collapsed && !mobileOpen ? "justify-center" : ""
+            className={`flex items-center gap-3 bg-foreground px-3 py-3 text-sm font-black text-background transition hover:bg-primary-soft ${
+              collapsed && !mobileOpen
+                ? "mx-auto h-11 w-11 justify-center rounded-xl p-0"
+                : "w-full rounded-2xl"
             }`}
           >
             <FiLogOut className="h-5 w-5 shrink-0" />
