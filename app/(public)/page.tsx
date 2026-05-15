@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ButtonLink } from "../../components/ui/button";
 
 export default function HomePage() {
@@ -6,8 +7,16 @@ export default function HomePage() {
     <main className="min-h-screen bg-background p-0 text-foreground">
       <section className="flex min-h-screen flex-col overflow-hidden bg-panel-strong p-8 shadow-2xl shadow-black/30 md:p-12 lg:p-20">
         <nav className="flex items-center justify-between">
-          <Link className="text-xl font-black tracking-[-0.04em]" href="/">
-            Reqlens
+          <Link className="flex items-center gap-3" href="/">
+            <Image
+              src="/images/logo.png"
+              alt="Reqlens"
+              width={44}
+              height={44}
+              priority
+              className="h-11 w-11 rounded-2xl object-cover"
+            />
+            <span className="text-xl font-black tracking-[-0.04em]">Reqlens</span>
           </Link>
           <div className="flex items-center gap-3">
             <ButtonLink href="/login" variant="ghost">

@@ -5,11 +5,15 @@ import "./styles.css";
 
 export const metadata: Metadata = {
   title: "Reqlens",
-  description: "Request analytics dashboard"
+  description: "Request analytics dashboard",
+  icons: {
+    icon: "/icons/favicon.png",
+    apple: "/icons/favicon.png",
+  },
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {

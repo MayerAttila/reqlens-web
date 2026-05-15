@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
@@ -11,8 +12,7 @@ import {
   FiDatabase,
   FiHome,
   FiLogOut,
-  FiSettings,
-  FiShield
+  FiSettings
 } from "react-icons/fi";
 import { IconType } from "react-icons";
 import { toast } from "react-toastify";
@@ -121,9 +121,14 @@ export function DashboardSidebar({
               showLabels ? "opacity-100" : "opacity-0 md:w-0"
             }`}
           >
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary-soft">
-              <FiShield className="h-5 w-5" />
-            </div>
+            <Image
+              src="/images/logo.png"
+              alt="Reqlens"
+              width={44}
+              height={44}
+              priority
+              className="h-11 w-11 shrink-0 rounded-2xl object-cover"
+            />
             <div className="min-w-0">
               <p className="truncate text-xs uppercase tracking-[0.22em] text-muted">
                 Reqlens
