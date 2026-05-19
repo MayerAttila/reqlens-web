@@ -855,7 +855,7 @@ function PeopleList({
         <div className="mt-3 grid gap-2">
           {people.map((person) => (
             <div
-              className="grid gap-3 rounded-2xl bg-panel-strong px-4 py-3 text-sm"
+              className="grid gap-3 rounded-2xl bg-panel-strong px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
               key={person.id}
             >
               <div className="min-w-0">
@@ -865,12 +865,13 @@ function PeopleList({
                 ) : null}
               </div>
               {showActions ? (
-                <div className="flex min-w-0 items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end">
                   {person.role && onRoleChange ? (
-                    <div className="min-w-36">
+                    <div className="w-36">
                       <DropdownSelect
                         onChange={(role) => onRoleChange(person.id, role)}
                         options={memberRoleOptions}
+                        size="sm"
                         value={person.role}
                       />
                     </div>

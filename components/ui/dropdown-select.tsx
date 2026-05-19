@@ -12,6 +12,7 @@ type DropdownSelectProps<TValue extends string> = {
   inputName?: string;
   onChange?: (value: TValue) => void;
   options: Array<DropdownSelectOption<TValue>>;
+  size?: "md" | "sm";
   value: TValue;
 };
 
@@ -19,6 +20,7 @@ export function DropdownSelect<TValue extends string>({
   inputName,
   onChange,
   options,
+  size = "md",
   value
 }: DropdownSelectProps<TValue>) {
   const [isOpen, setIsOpen] = useState(false);
@@ -29,7 +31,9 @@ export function DropdownSelect<TValue extends string>({
     <div className="relative">
       {inputName ? <input name={inputName} type="hidden" value={value} /> : null}
       <button
-        className={`flex h-12 w-full items-center justify-between gap-3 rounded-2xl border px-4 text-left text-sm font-black outline-none transition ${
+        className={`flex w-full items-center justify-between gap-3 rounded-2xl border text-left text-sm font-black outline-none transition ${
+          size === "sm" ? "h-10 px-3" : "h-12 px-4"
+        } ${
           isOpen
             ? "border-primary bg-primary/10 text-primary-soft"
             : "border-line bg-background/45 text-foreground hover:border-primary/40"
@@ -50,7 +54,9 @@ export function DropdownSelect<TValue extends string>({
 
             return (
               <button
-                className={`block w-full px-4 py-3 text-left text-sm font-black transition ${
+                className={`block w-full px-4 text-left text-sm font-black transition ${
+                  size === "sm" ? "py-2.5" : "py-3"
+                } ${
                   selected
                     ? "bg-primary/20 text-primary-soft"
                     : "text-foreground hover:bg-surface"
