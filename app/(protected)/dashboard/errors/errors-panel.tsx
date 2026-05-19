@@ -9,6 +9,7 @@ import {
 import { DropdownSelect } from "../../../../components/ui/dropdown-select";
 import {
   defaultLatencyErrorThresholdMs,
+  isSlowRequest,
   LatencyBadge,
   StatusBadge
 } from "../../../../components/ui/request-badges";
@@ -110,7 +111,16 @@ export function ErrorsPanel() {
       selectedProjects
         .flatMap((project) =>
           project.logs
-            .filter((log) => log.statusCode >= 400)
+            .filter((log) => {
+              const latencyErrorThresholdMs =
+                project.settings?.latencyErrorThresholdMs ??
+                defaultLatencyErrorThresholdMs;
+
+              return (
+                log.statusCode >= 400 ||
+                isSlowRequest(log.durationMs, latencyErrorThresholdMs)
+              );
+            })
             .map((log) => ({
               ...log,
               latencyErrorThresholdMs:
@@ -138,7 +148,29 @@ export function ErrorsPanel() {
 
   const totalErrors = projects.reduce(
     (count, project) =>
-      count + project.logs.filter((log) => log.statusCode >= 400).length,
+      count +
+      project.logs.filter((log) => {
+        const latencyErrorThresholdMs =
+          project.settings?.latencyErrorThresholdMs ??
+          defaultLatencyErrorThresholdMs;
+
+        return (
+          log.statusCode >= 400 ||
+          isSlowRequest(log.durationMs, latencyErrorThresholdMs)
+        );
+      }).length,
+    0
+  );
+  const slowCalls = projects.reduce(
+    (count, project) =>
+      count +
+      project.logs.filter((log) =>
+        isSlowRequest(
+          log.durationMs,
+          project.settings?.latencyErrorThresholdMs ??
+            defaultLatencyErrorThresholdMs
+        )
+      ).length,
     0
   );
   const serverErrors = projects.reduce(
@@ -154,7 +186,7 @@ export function ErrorsPanel() {
 
   async function loadErrors() {
     try {
-      const response = await fetch(`${apiUrl}/logs?level=errors`, {
+      const response = await fetch(`${apiUrl}/logs`, {
         credentials: "include"
       });
 
@@ -175,7 +207,7 @@ export function ErrorsPanel() {
     <div className="grid gap-6">
       <section className="grid gap-4 md:grid-cols-3">
         <SummaryCard label="Problem calls" value={totalErrors} />
-        <SummaryCard label="Client errors" value={clientErrors} />
+        <SummaryCard label="Latency alerts" value={slowCalls} tone="warning" />
         <SummaryCard label="Server errors" value={serverErrors} tone="danger" />
       </section>
 
@@ -243,7 +275,7 @@ function SummaryCard({
   value
 }: {
   label: string;
-  tone?: "danger" | "default";
+  tone?: "danger" | "default" | "warning";
   value: number;
 }) {
   return (
@@ -251,7 +283,11 @@ function SummaryCard({
       <p className="text-sm text-muted">{label}</p>
       <p
         className={`mt-2 text-4xl font-black ${
-          tone === "danger" ? "text-red-300" : "text-foreground"
+          tone === "danger"
+            ? "text-red-300"
+            : tone === "warning"
+              ? "text-orange-200"
+              : "text-foreground"
         }`}
       >
         {value}
