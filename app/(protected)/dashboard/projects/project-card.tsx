@@ -1,6 +1,5 @@
-import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { FiCopy } from "react-icons/fi";
+import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
 import type { Project, ProjectStats } from "./projects-panel";
 
 type ProjectCardProps = {
@@ -33,13 +32,10 @@ export function ProjectCard({
             </div>
           </div>
           {canCopyApiKey(project.accessRole) && project.hasApiKey ? (
-            <IconAction
+            <CopyIconButton
               label="Copy API key"
-              onClick={() => onCopyApiKey(project.id)}
-              variant="primary"
-            >
-              <FiCopy className="size-4" />
-            </IconAction>
+              onCopy={() => onCopyApiKey(project.id)}
+            />
           ) : null}
         </div>
       </div>
@@ -87,38 +83,6 @@ function roleLabel(role: Project["accessRole"]) {
     default:
       return "Viewer";
   }
-}
-
-function IconAction({
-  children,
-  label,
-  onClick,
-  variant = "secondary"
-}: {
-  children: ReactNode;
-  label: string;
-  onClick: () => void;
-  variant?: "primary" | "secondary";
-}) {
-  const className =
-    variant === "primary"
-      ? "bg-primary/15 text-primary-soft hover:bg-primary hover:text-white"
-      : "bg-surface text-foreground hover:bg-surface-soft";
-
-  return (
-    <button
-      aria-label={label}
-      className={`grid size-10 shrink-0 place-items-center rounded-2xl transition ${className}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      title={label}
-      type="button"
-    >
-      {children}
-    </button>
-  );
 }
 
 function CardMetric({

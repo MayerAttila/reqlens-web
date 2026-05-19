@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
 import {
   DataTable,
   DataTableColumn
@@ -56,7 +57,6 @@ export function ErrorsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectLogs[]>([]);
   const [errorSearch, setErrorSearch] = useState("");
-  const [selectedLog, setSelectedLog] = useState<VisibleErrorLog | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState("all");
   const errorColumns: Array<DataTableColumn<VisibleErrorLog>> = [
     {
@@ -99,19 +99,6 @@ export function ErrorsPanel() {
       header: "Time",
       render: (log) => (
         <span className="text-muted">{new Date(log.createdAt).toLocaleString()}</span>
-      )
-    },
-    {
-      className: "whitespace-nowrap",
-      header: "Details",
-      render: (log) => (
-        <button
-          className="rounded-xl bg-surface px-3 py-2 text-xs font-black text-foreground transition hover:bg-surface-soft"
-          onClick={() => setSelectedLog(log)}
-          type="button"
-        >
-          View
-        </button>
       )
     }
   ];
@@ -258,70 +245,53 @@ export function ErrorsPanel() {
               ? "No matching rows found."
               : "No problematic calls saved yet."
           }
+          expandedRow={(log) => <LogDetailsRow log={log} />}
           getRowKey={(log) => log.id}
-          gridTemplateColumns="0.9fr 0.7fr 1.4fr 0.7fr 0.7fr 1fr 0.6fr"
+          gridTemplateColumns="0.9fr 0.7fr 1.4fr 0.7fr 0.7fr 1fr"
           isLoading={isLoading}
           items={filteredVisibleLogs}
           loadingText="Loading errors..."
           storageKey="reqlens:errors-table-widths"
         />
       </section>
-      {selectedLog ? (
-        <LogDetailsModal log={selectedLog} onClose={() => setSelectedLog(null)} />
-      ) : null}
     </div>
   );
 }
 
-function LogDetailsModal({
-  log,
-  onClose
-}: {
-  log: VisibleErrorLog;
-  onClose: () => void;
-}) {
+function LogDetailsRow({ log }: { log: VisibleErrorLog }) {
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4">
-      <div className="w-full max-w-4xl rounded-3xl bg-panel p-6 shadow-2xl shadow-black/40">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">
-              Problem payload
-            </p>
-            <h2 className="mt-2 text-2xl font-black">
-              {log.method} {log.path}
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              {log.projectName} · status {log.statusCode} · {log.durationMs} ms
-            </p>
-          </div>
-          <button
-            className="rounded-2xl bg-surface px-4 py-2 text-sm font-black text-muted transition hover:text-foreground"
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <PayloadPanel label="Request body" value={log.requestBody} />
-          <PayloadPanel label="Response body" value={log.responseBody} />
-        </div>
+    <div className="rounded-2xl bg-background/50 p-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <PayloadPanel label="Request body" value={log.requestBody} />
+        <PayloadPanel label="Response body" value={log.responseBody} />
       </div>
     </div>
   );
 }
 
 function PayloadPanel({ label, value }: { label: string; value: unknown }) {
+  const formattedPayload = formatPayload(value);
+
+  async function copyPayload() {
+    await navigator.clipboard.writeText(formattedPayload);
+    toast.success(`${label} copied.`);
+  }
+
   return (
     <div className="rounded-2xl bg-panel-strong p-4">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-muted">
         {label}
       </p>
-      <pre className="mt-3 max-h-96 overflow-auto rounded-2xl bg-background p-4 text-xs leading-6 text-foreground">
-        {formatPayload(value)}
-      </pre>
+      <div className="relative mt-3">
+        <CopyIconButton
+          className="absolute right-3 top-3"
+          label={`Copy ${label}`}
+          onCopy={copyPayload}
+        />
+        <pre className="max-h-96 overflow-auto rounded-2xl bg-background p-4 pr-16 text-xs leading-6 text-foreground">
+          {formattedPayload}
+        </pre>
+      </div>
     </div>
   );
 }

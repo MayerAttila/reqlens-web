@@ -571,7 +571,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
             </p>
           </div>
           {canCopyApiKey && project.hasApiKey ? (
-            <Button onClick={copyApiKey} type="button">
+            <Button onClick={copyApiKey} type="button" variant="secondary">
               Copy API key
             </Button>
           ) : null}

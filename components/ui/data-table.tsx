@@ -13,6 +13,7 @@ export type DataTableColumn<TItem> = {
 type DataTableProps<TItem> = {
   columns: Array<DataTableColumn<TItem>>;
   emptyText: string;
+  expandedRow?: (item: TItem) => ReactNode;
   getRowKey: (item: TItem) => string;
   gridTemplateColumns: string;
   isLoading?: boolean;
@@ -27,6 +28,7 @@ const defaultPageSizeOptions = [20, 50, 100];
 export function DataTable<TItem>({
   columns,
   emptyText,
+  expandedRow,
   getRowKey,
   gridTemplateColumns,
   isLoading = false,
@@ -42,6 +44,7 @@ export function DataTable<TItem>({
     startWidths: number[];
   } | null>(null);
   const [columnWidths, setColumnWidths] = useState<number[] | null>(null);
+  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 10);
 
@@ -225,19 +228,53 @@ export function DataTable<TItem>({
           <p className="p-4 text-sm text-muted">{emptyText}</p>
         ) : null}
 
-        {visibleItems.map((item) => (
-          <div
-            className="grid gap-3 border-b border-background/70 px-4 py-3 text-sm text-foreground last:border-b-0"
-            key={getRowKey(item)}
-            style={{ gridTemplateColumns: activeGridTemplateColumns }}
-          >
-            {columns.map((column) => (
-              <div className={`min-w-0 ${column.className ?? ""}`} key={column.header}>
-                {column.render(item)}
-              </div>
-            ))}
-          </div>
-        ))}
+        {visibleItems.map((item) => {
+          const rowKey = getRowKey(item);
+          const isExpanded = expandedRowKey === rowKey;
+
+          return (
+            <div className="border-b border-background/70 last:border-b-0" key={rowKey}>
+              <button
+                className={`grid w-full gap-3 px-4 py-3 text-left text-sm text-foreground transition ${
+                  expandedRow ? "hover:bg-surface/40" : ""
+                } ${isExpanded ? "bg-surface/30" : ""}`}
+                onClick={() => {
+                  if (!expandedRow) {
+                    return;
+                  }
+
+                  setExpandedRowKey((current) =>
+                    current === rowKey ? null : rowKey
+                  );
+                }}
+                style={{ gridTemplateColumns: activeGridTemplateColumns }}
+                type="button"
+              >
+                {columns.map((column) => (
+                  <div
+                    className={`min-w-0 ${column.className ?? ""}`}
+                    key={column.header}
+                  >
+                    {column.render(item)}
+                  </div>
+                ))}
+              </button>
+              {expandedRow ? (
+                <div
+                  className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+                    isExpanded
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="px-4 pb-4">{expandedRow(item)}</div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
       {!isLoading && items.length > 0 ? (
         <div className="flex flex-col gap-3 border-t border-background px-4 py-3 text-sm text-muted md:flex-row md:items-center md:justify-between">
