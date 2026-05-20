@@ -580,13 +580,26 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
 
       <MetricGrid
         blocks={[
-          { label: "Requests", value: stats.requestCount },
+          {
+            href: `/dashboard/requests?projectId=${project.id}`,
+            label: "Requests",
+            linkLabel: "View requests",
+            value: stats.requestCount
+          },
           {
             helperText: `${latencyThresholdMs} ms or higher`,
+            href: `/dashboard/errors?projectId=${project.id}&type=latency`,
             label: "Latency alerts",
+            linkLabel: "View slow calls",
             value: stats.slowCount
           },
-          { label: "Errors", tone: "danger", value: stats.errorCount },
+          {
+            href: `/dashboard/errors?projectId=${project.id}&type=errors`,
+            label: "Errors",
+            linkLabel: "View errors",
+            tone: "danger",
+            value: stats.errorCount
+          },
           { label: "Collaborators", value: project.members.length }
         ]}
       />

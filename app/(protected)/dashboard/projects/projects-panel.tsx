@@ -207,15 +207,24 @@ export function ProjectsPanel() {
   const metricBlocks = useMemo(
     () => [
       { label: "Projects", value: projects.length },
-      { label: "Total requests", value: totalRequests },
+      {
+        href: "/dashboard/requests",
+        label: "Total requests",
+        linkLabel: "View requests",
+        value: totalRequests
+      },
       {
         helperText: "Project limit or higher",
+        href: "/dashboard/errors?type=latency",
         label: "Projects to watch",
+        linkLabel: "View slow calls",
         tone: projectsWithSlowCalls ? "danger" as const : "default" as const,
         value: projectsWithSlowCalls
       },
       {
+        href: "/dashboard/errors?type=errors",
         label: "Projects with errors",
+        linkLabel: "View errors",
         tone: "danger" as const,
         value: projectsWithErrors
       }

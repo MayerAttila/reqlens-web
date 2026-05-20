@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import {
   DataTable,
@@ -89,10 +91,14 @@ const requestColumns: Array<DataTableColumn<VisibleRequestLog>> = [
 ];
 
 export function RequestsPanel() {
+  const searchParams = useSearchParams();
+  const projectIdParam = searchParams.get("projectId");
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectLogs[]>([]);
   const [requestSearch, setRequestSearch] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState("all");
+  const [selectedProjectId, setSelectedProjectId] = useState(
+    projectIdParam ?? "all"
+  );
 
   const selectedProjects = useMemo(() => {
     if (selectedProjectId === "all") {
@@ -167,6 +173,10 @@ export function RequestsPanel() {
     void loadLogs();
   }, []);
 
+  useEffect(() => {
+    setSelectedProjectId(projectIdParam ?? "all");
+  }, [projectIdParam]);
+
   async function loadLogs() {
     try {
       const response = await fetch(`${apiUrl}/logs`, {
@@ -189,12 +199,25 @@ export function RequestsPanel() {
   return (
     <div className="grid gap-6">
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <SummaryCard label="Requests" value={totalRequests} />
+        <SummaryCard
+          href="/dashboard/requests"
+          label="Requests"
+          linkLabel="View all"
+          value={totalRequests}
+        />
         <SummaryCard label="Successful" value={successfulRequests} />
-        <SummaryCard label="Problem calls" tone="danger" value={problemRequests} />
+        <SummaryCard
+          href="/dashboard/errors"
+          label="Problem calls"
+          linkLabel="View problems"
+          tone="danger"
+          value={problemRequests}
+        />
         <SummaryCard
           helperText="Project limit or higher"
+          href="/dashboard/errors?type=latency"
           label="Latency alerts"
+          linkLabel="View slow calls"
           tone={slowRequests ? "warning" : "default"}
           value={slowRequests}
         />
@@ -245,17 +268,21 @@ export function RequestsPanel() {
 
 function SummaryCard({
   helperText,
+  href,
   label,
+  linkLabel,
   tone = "default",
   value
 }: {
   helperText?: string;
+  href?: string;
   label: string;
+  linkLabel?: string;
   tone?: "danger" | "default" | "warning";
   value: number | string;
 }) {
-  return (
-    <div className="rounded-3xl bg-panel p-5">
+  const content = (
+    <>
       <p className="text-sm text-muted">{label}</p>
       <p
         className={`mt-2 text-4xl font-black ${
@@ -269,6 +296,28 @@ function SummaryCard({
         {value}
       </p>
       {helperText ? <p className="mt-2 text-xs text-muted">{helperText}</p> : null}
+      {href ? (
+        <p className="mt-4 text-xs font-black text-muted">
+          {linkLabel ?? "Open"} →
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        className="rounded-3xl bg-panel p-5 transition hover:-translate-y-0.5 hover:bg-surface"
+        href={href}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="rounded-3xl bg-panel p-5">
+      {content}
     </div>
   );
 }

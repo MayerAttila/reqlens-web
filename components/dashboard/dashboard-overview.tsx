@@ -175,16 +175,30 @@ export function DashboardOverview() {
     <div className="grid gap-6">
       <MetricGrid
         blocks={[
-          { label: "Projects", value: projects.length },
-          { label: "Requests today", value: todayLogs.length },
           {
+            href: "/dashboard/projects",
+            label: "Projects",
+            linkLabel: "View projects",
+            value: projects.length
+          },
+          {
+            href: "/dashboard/requests",
+            label: "Requests today",
+            linkLabel: "View requests",
+            value: todayLogs.length
+          },
+          {
+            href: "/dashboard/errors?type=errors",
             label: "Problem calls today",
+            linkLabel: "View errors",
             tone: "danger",
             value: todayErrors.length
           },
           {
             helperText: `Avg ${averageLatency} ms - per-project alert limits`,
+            href: "/dashboard/errors?type=latency",
             label: "Latency alerts today",
+            linkLabel: "View slow calls",
             tone: todaySlowRequests.length ? "danger" : "default",
             value: todaySlowRequests.length
           }

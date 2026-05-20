@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FiChevronDown } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
@@ -55,10 +57,15 @@ type VisibleErrorLog = RequestLog & {
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
 
 export function ErrorsPanel() {
+  const searchParams = useSearchParams();
+  const projectIdParam = searchParams.get("projectId");
+  const typeParam = searchParams.get("type");
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectLogs[]>([]);
   const [errorSearch, setErrorSearch] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState("all");
+  const [selectedProjectId, setSelectedProjectId] = useState(
+    projectIdParam ?? "all"
+  );
   const errorColumns: Array<DataTableColumn<VisibleErrorLog>> = [
     {
       className: "min-w-0",
@@ -134,8 +141,7 @@ export function ErrorsPanel() {
                 defaultLatencyErrorThresholdMs;
 
               return (
-                log.statusCode >= 400 ||
-                isSlowRequest(log.durationMs, latencyErrorThresholdMs)
+                shouldShowProblemLog(log, latencyErrorThresholdMs, typeParam)
               );
             })
             .map((log) => ({
@@ -172,8 +178,7 @@ export function ErrorsPanel() {
           defaultLatencyErrorThresholdMs;
 
         return (
-          log.statusCode >= 400 ||
-          isSlowRequest(log.durationMs, latencyErrorThresholdMs)
+          shouldShowProblemLog(log, latencyErrorThresholdMs, typeParam)
         );
       }).length,
     0
@@ -200,6 +205,10 @@ export function ErrorsPanel() {
     void loadErrors();
   }, []);
 
+  useEffect(() => {
+    setSelectedProjectId(projectIdParam ?? "all");
+  }, [projectIdParam]);
+
   async function loadErrors() {
     try {
       const response = await fetch(`${apiUrl}/logs`, {
@@ -222,9 +231,26 @@ export function ErrorsPanel() {
   return (
     <div className="grid gap-6">
       <section className="grid gap-4 md:grid-cols-3">
-        <SummaryCard label="Problem calls" value={totalErrors} />
-        <SummaryCard label="Latency alerts" value={slowCalls} tone="warning" />
-        <SummaryCard label="Server errors" value={serverErrors} tone="danger" />
+        <SummaryCard
+          href="/dashboard/errors"
+          label="Problem calls"
+          linkLabel="View all"
+          value={totalErrors}
+        />
+        <SummaryCard
+          href="/dashboard/errors?type=latency"
+          label="Latency alerts"
+          linkLabel="View slow calls"
+          value={slowCalls}
+          tone="warning"
+        />
+        <SummaryCard
+          href="/dashboard/errors?type=errors"
+          label="Server errors"
+          linkLabel="View errors"
+          value={serverErrors}
+          tone="danger"
+        />
       </section>
 
       <section className="min-w-0 rounded-3xl bg-panel p-6">
@@ -320,6 +346,25 @@ function formatPayload(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+function shouldShowProblemLog(
+  log: RequestLog,
+  latencyErrorThresholdMs: number,
+  type: string | null
+) {
+  const isError = log.statusCode >= 400;
+  const isLatencyAlert = isSlowRequest(log.durationMs, latencyErrorThresholdMs);
+
+  if (type === "errors") {
+    return isError;
+  }
+
+  if (type === "latency") {
+    return isLatencyAlert;
+  }
+
+  return isError || isLatencyAlert;
+}
+
 function filterRows<TItem>(
   items: TItem[],
   query: string,
@@ -337,16 +382,20 @@ function filterRows<TItem>(
 }
 
 function SummaryCard({
+  href,
   label,
+  linkLabel,
   tone = "default",
   value
 }: {
+  href?: string;
   label: string;
+  linkLabel?: string;
   tone?: "danger" | "default" | "warning";
   value: number;
 }) {
-  return (
-    <div className="rounded-3xl bg-panel p-5">
+  const content = (
+    <>
       <p className="text-sm text-muted">{label}</p>
       <p
         className={`mt-2 text-4xl font-black ${
@@ -359,6 +408,28 @@ function SummaryCard({
       >
         {value}
       </p>
+      {href ? (
+        <p className="mt-4 text-xs font-black text-muted">
+          {linkLabel ?? "Open"} →
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        className="rounded-3xl bg-panel p-5 transition hover:-translate-y-0.5 hover:bg-surface"
+        href={href}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="rounded-3xl bg-panel p-5">
+      {content}
     </div>
   );
 }

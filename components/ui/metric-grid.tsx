@@ -1,8 +1,11 @@
 import { ReactNode } from "react";
+import Link from "next/link";
 
 export type MetricBlock = {
   helperText?: string;
+  href?: string;
   label: string;
+  linkLabel?: string;
   tone?: "danger" | "default";
   value: ReactNode;
 };
@@ -29,8 +32,8 @@ export function MetricGrid({ blocks, columns = 4 }: MetricGridProps) {
 }
 
 function MetricCard({ block }: { block: MetricBlock }) {
-  return (
-    <article className="rounded-3xl bg-panel p-5">
+  const content = (
+    <>
       <p className="text-sm text-muted">{block.label}</p>
       <p
         className={`mt-3 text-4xl font-black ${
@@ -42,6 +45,28 @@ function MetricCard({ block }: { block: MetricBlock }) {
       {block.helperText ? (
         <p className="mt-2 text-xs text-muted">{block.helperText}</p>
       ) : null}
+      {block.href ? (
+        <p className="mt-4 text-xs font-black text-muted">
+          {block.linkLabel ?? "Open"} →
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (block.href) {
+    return (
+      <Link
+        className="rounded-3xl bg-panel p-5 transition hover:-translate-y-0.5 hover:bg-surface"
+        href={block.href}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <article className="rounded-3xl bg-panel p-5">
+      {content}
     </article>
   );
 }
