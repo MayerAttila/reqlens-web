@@ -195,7 +195,6 @@ export function DashboardOverview() {
             value: todayErrors.length
           },
           {
-            helperText: `Avg ${averageLatency} ms - per-project alert limits`,
             href: "/dashboard/errors?type=latency",
             label: "Latency alerts today",
             linkLabel: "View slow calls",

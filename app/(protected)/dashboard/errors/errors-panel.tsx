@@ -54,6 +54,8 @@ type VisibleErrorLog = RequestLog & {
   projectName: string;
 };
 
+type ProblemTypeFilter = "all" | "errors" | "latency";
+
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
 
 export function ErrorsPanel() {
@@ -66,6 +68,8 @@ export function ErrorsPanel() {
   const [selectedProjectId, setSelectedProjectId] = useState(
     projectIdParam ?? "all"
   );
+  const [selectedProblemType, setSelectedProblemType] =
+    useState<ProblemTypeFilter>(normalizeProblemType(typeParam));
   const errorColumns: Array<DataTableColumn<VisibleErrorLog>> = [
     {
       className: "min-w-0",
@@ -141,7 +145,11 @@ export function ErrorsPanel() {
                 defaultLatencyErrorThresholdMs;
 
               return (
-                shouldShowProblemLog(log, latencyErrorThresholdMs, typeParam)
+                shouldShowProblemLog(
+                  log,
+                  latencyErrorThresholdMs,
+                  selectedProblemType
+                )
               );
             })
             .map((log) => ({
@@ -156,7 +164,7 @@ export function ErrorsPanel() {
           (first, second) =>
             new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
         ),
-    [selectedProjects]
+    [selectedProblemType, selectedProjects]
   );
   const filteredVisibleLogs = useMemo(
     () =>
@@ -178,7 +186,7 @@ export function ErrorsPanel() {
           defaultLatencyErrorThresholdMs;
 
         return (
-          shouldShowProblemLog(log, latencyErrorThresholdMs, typeParam)
+          shouldShowProblemLog(log, latencyErrorThresholdMs, selectedProblemType)
         );
       }).length,
     0
@@ -200,6 +208,14 @@ export function ErrorsPanel() {
       count + project.logs.filter((log) => log.statusCode >= 500).length,
     0
   );
+  const nonServerErrors = projects.reduce(
+    (count, project) =>
+      count +
+      project.logs.filter(
+        (log) => log.statusCode >= 400 && log.statusCode < 500
+      ).length,
+    0
+  );
 
   useEffect(() => {
     void loadErrors();
@@ -208,6 +224,10 @@ export function ErrorsPanel() {
   useEffect(() => {
     setSelectedProjectId(projectIdParam ?? "all");
   }, [projectIdParam]);
+
+  useEffect(() => {
+    setSelectedProblemType(normalizeProblemType(typeParam));
+  }, [typeParam]);
 
   async function loadErrors() {
     try {
@@ -230,7 +250,7 @@ export function ErrorsPanel() {
 
   return (
     <div className="grid gap-6">
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           href="/dashboard/errors"
           label="Problem calls"
@@ -246,8 +266,14 @@ export function ErrorsPanel() {
         />
         <SummaryCard
           href="/dashboard/errors?type=errors"
+          label="Client errors"
+          linkLabel="View 4xx"
+          value={nonServerErrors}
+        />
+        <SummaryCard
+          href="/dashboard/errors?type=errors"
           label="Server errors"
-          linkLabel="View errors"
+          linkLabel="View 5xx"
           value={serverErrors}
           tone="danger"
         />
@@ -255,7 +281,7 @@ export function ErrorsPanel() {
 
       <section className="min-w-0 rounded-3xl bg-panel p-6">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="w-full lg:max-w-xs">
+          <div className="grid w-full gap-3 sm:grid-cols-2 lg:max-w-2xl">
             <DropdownSelect
               onChange={setSelectedProjectId}
               options={[
@@ -266,6 +292,15 @@ export function ErrorsPanel() {
                 }))
               ]}
               value={selectedProjectId}
+            />
+            <DropdownSelect
+              onChange={setSelectedProblemType}
+              options={[
+                { label: "All problems", value: "all" },
+                { label: "Errors", value: "errors" },
+                { label: "Latency alerts", value: "latency" }
+              ]}
+              value={selectedProblemType}
             />
           </div>
           <SearchInput
@@ -349,7 +384,7 @@ function formatPayload(value: unknown) {
 function shouldShowProblemLog(
   log: RequestLog,
   latencyErrorThresholdMs: number,
-  type: string | null
+  type: ProblemTypeFilter
 ) {
   const isError = log.statusCode >= 400;
   const isLatencyAlert = isSlowRequest(log.durationMs, latencyErrorThresholdMs);
@@ -363,6 +398,14 @@ function shouldShowProblemLog(
   }
 
   return isError || isLatencyAlert;
+}
+
+function normalizeProblemType(type: string | null): ProblemTypeFilter {
+  if (type === "errors" || type === "latency") {
+    return type;
+  }
+
+  return "all";
 }
 
 function filterRows<TItem>(

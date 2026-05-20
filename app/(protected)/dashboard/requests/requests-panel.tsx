@@ -200,9 +200,7 @@ export function RequestsPanel() {
     <div className="grid gap-6">
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         <SummaryCard
-          href="/dashboard/requests"
           label="Requests"
-          linkLabel="View all"
           value={totalRequests}
         />
         <SummaryCard label="Successful" value={successfulRequests} />
@@ -214,7 +212,6 @@ export function RequestsPanel() {
           value={problemRequests}
         />
         <SummaryCard
-          helperText="Project limit or higher"
           href="/dashboard/errors?type=latency"
           label="Latency alerts"
           linkLabel="View slow calls"
