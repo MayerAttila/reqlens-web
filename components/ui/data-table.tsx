@@ -7,7 +7,7 @@ export type DataTableColumn<TItem> = {
   className?: string;
   header: string;
   minWidth?: number;
-  render: (item: TItem) => ReactNode;
+  render: (item: TItem, state: { isExpanded: boolean }) => ReactNode;
 };
 
 type DataTableProps<TItem> = {
@@ -43,19 +43,28 @@ export function DataTable<TItem>({
     startX: number;
     startWidths: number[];
   } | null>(null);
-  const [columnWidths, setColumnWidths] = useState<number[] | null>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const [preferredColumnWidths, setPreferredColumnWidths] = useState<number[] | null>(
+    null
+  );
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 10);
-
-  const activeGridTemplateColumns = columnWidths
-    ? columnWidths.map((width) => `${width}px`).join(" ")
-    : gridTemplateColumns;
 
   const minWidths = useMemo(
     () => columns.map((column) => column.minWidth ?? 72),
     [columns]
   );
+  const displayColumnWidths = useMemo(
+    () =>
+      preferredColumnWidths
+        ? clampWidths(preferredColumnWidths, minWidths, availableWidth)
+        : null,
+    [availableWidth, minWidths, preferredColumnWidths]
+  );
+  const activeGridTemplateColumns = displayColumnWidths
+    ? displayColumnWidths.map((width) => `${width}px`).join(" ")
+    : gridTemplateColumns;
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const visibleItems = items.slice((page - 1) * pageSize, page * pageSize);
   const pageStart = items.length === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -68,15 +77,13 @@ export function DataTable<TItem>({
 
     const savedWidths = readSavedWidths(storageKey, columns.length);
 
-    const availableWidth = getAvailableTableWidth(tableRef.current, columns.length);
-
     if (savedWidths) {
-      setColumnWidths(clampWidths(savedWidths, minWidths, availableWidth));
+      setPreferredColumnWidths(savedWidths);
       return;
     }
 
     const initializeWidths = () => {
-      setColumnWidths(
+      setPreferredColumnWidths(
         parseInitialWidths(
           gridTemplateColumns,
           columns.length,
@@ -102,12 +109,33 @@ export function DataTable<TItem>({
   }, [pageSizeOptions, storageKey]);
 
   useEffect(() => {
-    if (!storageKey || !columnWidths) {
+    if (!storageKey || !preferredColumnWidths) {
       return;
     }
 
-    window.localStorage.setItem(storageKey, JSON.stringify(columnWidths));
-  }, [columnWidths, storageKey]);
+    window.localStorage.setItem(storageKey, JSON.stringify(preferredColumnWidths));
+  }, [preferredColumnWidths, storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const table = tableRef.current;
+
+    if (!table) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      setAvailableWidth(getAvailableTableWidth(table, columns.length));
+    });
+
+    setAvailableWidth(getAvailableTableWidth(table, columns.length));
+    observer.observe(table);
+
+    return () => observer.disconnect();
+  }, [columns.length, storageKey]);
 
   useEffect(() => {
     if (!storageKey) {
@@ -134,7 +162,7 @@ export function DataTable<TItem>({
       }
 
       const delta = event.clientX - activeDrag.startX;
-      setColumnWidths((currentWidths) => {
+      setPreferredColumnWidths((currentWidths) => {
         const widths = [...(currentWidths ?? activeDrag.startWidths)];
         const nextColumnIndex = activeDrag.columnIndex + 1;
         const currentMinWidth = minWidths[activeDrag.columnIndex];
@@ -176,7 +204,7 @@ export function DataTable<TItem>({
     }
 
     const widths =
-      columnWidths ??
+      displayColumnWidths ??
       parseInitialWidths(
         gridTemplateColumns,
         columns.length,
@@ -190,14 +218,14 @@ export function DataTable<TItem>({
       startX: event.clientX,
       startWidths: widths
     };
-    setColumnWidths(widths);
+    setPreferredColumnWidths(widths);
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-panel-strong" ref={tableRef}>
-      <div>
+    <div className="min-w-0 overflow-hidden rounded-2xl bg-panel-strong" ref={tableRef}>
+      <div className="overflow-x-auto">
         <div
           className="grid gap-3 border-b border-background px-4 py-3 text-xs uppercase tracking-[0.14em] text-muted"
           style={{ gridTemplateColumns: activeGridTemplateColumns }}
@@ -255,7 +283,7 @@ export function DataTable<TItem>({
                     className={`min-w-0 ${column.className ?? ""}`}
                     key={column.header}
                   >
-                    {column.render(item)}
+                    {column.render(item, { isExpanded })}
                   </div>
                 ))}
               </button>
@@ -377,11 +405,31 @@ function clampWidths(widths: number[], minWidths: number[], availableWidth: numb
   const currentTotal = widths.reduce((total, width) => total + width, 0);
 
   if (availableWidth <= 0 || currentTotal <= availableWidth) {
-    return widths.map((width, index) => Math.max(minWidths[index], width));
+    const safeWidths = widths.map((width, index) => Math.max(minWidths[index], width));
+    const safeTotal = safeWidths.reduce((total, width) => total + width, 0);
+
+    if (availableWidth <= 0 || safeTotal >= availableWidth) {
+      return safeWidths;
+    }
+
+    const extraWidth = availableWidth - safeTotal;
+    const expandableIndexes = safeWidths
+      .map((width, index) => ({ index, width }))
+      .filter(({ width }, index) => widths[index] > minWidths[index])
+      .map(({ index }) => index);
+    const indexes = expandableIndexes.length
+      ? expandableIndexes
+      : safeWidths.map((_width, index) => index);
+    const extraPerColumn = extraWidth / indexes.length;
+
+    return safeWidths.map((width, index) =>
+      indexes.includes(index) ? width + extraPerColumn : width
+    );
   }
 
   if (availableWidth <= minTotal) {
-    return minWidths;
+    const scale = availableWidth / minTotal;
+    return minWidths.map((width) => Math.max(36, width * scale));
   }
 
   const extraWidth = availableWidth - minTotal;

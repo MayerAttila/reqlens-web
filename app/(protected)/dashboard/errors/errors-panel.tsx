@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FiChevronDown } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
 import {
@@ -99,6 +100,17 @@ export function ErrorsPanel() {
       header: "Time",
       render: (log) => (
         <span className="text-muted">{new Date(log.createdAt).toLocaleString()}</span>
+      )
+    },
+    {
+      className: "flex justify-end",
+      header: "",
+      render: (_log, { isExpanded }) => (
+        <span className="grid size-8 place-items-center rounded-xl bg-surface text-muted">
+          <FiChevronDown
+            className={`size-4 transition ${isExpanded ? "rotate-180" : ""}`}
+          />
+        </span>
       )
     }
   ];
@@ -215,7 +227,7 @@ export function ErrorsPanel() {
         <SummaryCard label="Server errors" value={serverErrors} tone="danger" />
       </section>
 
-      <section className="rounded-3xl bg-panel p-6">
+      <section className="min-w-0 rounded-3xl bg-panel p-6">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="w-full lg:max-w-xs">
             <DropdownSelect
@@ -247,7 +259,7 @@ export function ErrorsPanel() {
           }
           expandedRow={(log) => <LogDetailsRow log={log} />}
           getRowKey={(log) => log.id}
-          gridTemplateColumns="0.9fr 0.7fr 1.4fr 0.7fr 0.7fr 1fr"
+          gridTemplateColumns="0.9fr 0.7fr 1.4fr 0.7fr 0.7fr 1fr 48px"
           isLoading={isLoading}
           items={filteredVisibleLogs}
           loadingText="Loading errors..."
