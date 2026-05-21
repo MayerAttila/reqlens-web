@@ -224,7 +224,7 @@ export function DataTable<TItem>({
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-2xl bg-panel-strong" ref={tableRef}>
+    <div className="relative min-w-0 rounded-2xl bg-panel-strong" ref={tableRef}>
       <div className="overflow-x-auto">
         <div
           className="grid gap-3 border-b border-background px-4 py-3 text-xs uppercase tracking-[0.14em] text-muted"
