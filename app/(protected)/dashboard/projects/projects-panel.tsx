@@ -208,7 +208,9 @@ export function ProjectsPanel() {
     () => [
       { label: "Projects", value: projects.length },
       {
+        href: "/dashboard/requests",
         label: "Total requests",
+        linkLabel: "View requests",
         value: totalRequests
       },
       {

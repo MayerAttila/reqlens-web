@@ -20,6 +20,7 @@ type DataTableProps<TItem> = {
   items: TItem[];
   loadingText?: string;
   pageSizeOptions?: number[];
+  showPagination?: boolean;
   storageKey?: string;
 };
 
@@ -35,6 +36,7 @@ export function DataTable<TItem>({
   items,
   loadingText = "Loading...",
   pageSizeOptions = defaultPageSizeOptions,
+  showPagination = true,
   storageKey
 }: DataTableProps<TItem>) {
   const tableRef = useRef<HTMLDivElement>(null);
@@ -66,12 +68,14 @@ export function DataTable<TItem>({
     ? displayColumnWidths.map((width) => `${width}px`).join(" ")
     : gridTemplateColumns;
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-  const visibleItems = items.slice((page - 1) * pageSize, page * pageSize);
+  const visibleItems = showPagination
+    ? items.slice((page - 1) * pageSize, page * pageSize)
+    : items;
   const pageStart = items.length === 0 ? 0 : (page - 1) * pageSize + 1;
   const pageEnd = Math.min(page * pageSize, items.length);
 
   useEffect(() => {
-    if (!storageKey) {
+    if (!storageKey || !showPagination) {
       return;
     }
 
@@ -106,7 +110,7 @@ export function DataTable<TItem>({
     if (savedPageSize) {
       setPageSize((current) => (current === savedPageSize ? current : savedPageSize));
     }
-  }, [pageSizeOptions, storageKey]);
+  }, [pageSizeOptions, showPagination, storageKey]);
 
   useEffect(() => {
     if (!storageKey || !preferredColumnWidths) {
@@ -138,20 +142,24 @@ export function DataTable<TItem>({
   }, [columns.length, storageKey]);
 
   useEffect(() => {
-    if (!storageKey) {
+    if (!storageKey || !showPagination) {
       return;
     }
 
     window.localStorage.setItem(`${storageKey}:page-size`, String(pageSize));
-  }, [pageSize, storageKey]);
+  }, [pageSize, showPagination, storageKey]);
 
   useEffect(() => {
-    setPage(1);
-  }, [items, pageSize]);
+    if (showPagination) {
+      setPage(1);
+    }
+  }, [items, pageSize, showPagination]);
 
   useEffect(() => {
-    setPage((current) => Math.min(current, totalPages));
-  }, [totalPages]);
+    if (showPagination) {
+      setPage((current) => Math.min(current, totalPages));
+    }
+  }, [showPagination, totalPages]);
 
   useEffect(() => {
     function handlePointerMove(event: globalThis.PointerEvent) {
@@ -304,7 +312,7 @@ export function DataTable<TItem>({
           );
         })}
       </div>
-      {!isLoading && items.length > 0 ? (
+      {showPagination && !isLoading && items.length > 0 ? (
         <div className="flex flex-col gap-3 border-t border-background px-4 py-3 text-sm text-muted md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
             <span>Rows</span>

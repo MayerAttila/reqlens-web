@@ -137,7 +137,7 @@ export function DashboardOverview() {
           (first, second) =>
             new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
         )
-        .slice(0, 10),
+        .slice(0, 20),
     [allLogs]
   );
   const filteredRecentRequests = useMemo(
@@ -160,16 +160,21 @@ export function DashboardOverview() {
           todayLogs.length
       )
     : 0;
-  const latestErrors = recentRequests
-    .filter((log) => log.statusCode >= 400)
-    .slice(0, 5);
-  const latestSlowRequests = recentRequests
-    .filter((log) => isSlowRequest(log.durationMs, log.latencyErrorThresholdMs))
-    .slice(0, 5);
-  const clientErrors = latestErrors.filter(
-    (log) => log.statusCode >= 400 && log.statusCode < 500
-  ).length;
-  const serverErrors = latestErrors.filter((log) => log.statusCode >= 500).length;
+  const latestProblematicCalls = useMemo(
+    () =>
+      [...allLogs]
+        .filter(
+          (log) =>
+            log.statusCode >= 400 ||
+            isSlowRequest(log.durationMs, log.latencyErrorThresholdMs)
+        )
+        .sort(
+          (first, second) =>
+            new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+        )
+        .slice(0, 12),
+    [allLogs]
+  );
 
   return (
     <div className="grid gap-6">
@@ -204,7 +209,7 @@ export function DashboardOverview() {
         ]}
       />
 
-      <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_30rem]">
         <div className="rounded-3xl bg-panel p-6">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -236,110 +241,67 @@ export function DashboardOverview() {
             isLoading={isLoading}
             items={filteredRecentRequests}
             loadingText="Loading requests..."
+            showPagination={false}
             storageKey="reqlens:dashboard-recent-table-widths"
           />
         </div>
 
-        <div className="grid min-w-0 gap-6">
-          <section className="rounded-3xl bg-panel p-6">
-            <h2 className="text-2xl font-black">Latency snapshot</h2>
-            <p className="mt-1 text-sm text-muted">
-              Latest calls at each project's latency limit or higher.
-            </p>
+        <section className="min-w-0 rounded-3xl bg-panel p-6">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-black">Recent problematic calls</h2>
+            <ButtonLink href="/dashboard/errors" variant="secondary">
+              Open
+            </ButtonLink>
+          </div>
 
-            <div className="mt-5 grid gap-2">
-              {latestSlowRequests.length ? (
-                latestSlowRequests.map((log) => (
+          <div className="mt-5 grid gap-2">
+            {latestProblematicCalls.length ? (
+              latestProblematicCalls.map((log) => {
+                const isSlow = isSlowRequest(
+                  log.durationMs,
+                  log.latencyErrorThresholdMs
+                );
+
+                return (
                   <div
                     className="rounded-2xl bg-panel-strong p-3 text-sm"
                     key={log.id}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="truncate font-black">{log.projectName}</span>
-                      <LatencyBadge
-                        durationMs={log.durationMs}
-                        thresholdMs={log.latencyErrorThresholdMs}
-                      />
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="flex items-center gap-2">
+                          {log.statusCode >= 400 ? (
+                            <StatusBadge statusCode={log.statusCode} />
+                          ) : null}
+                          {isSlow ? (
+                            <LatencyBadge
+                              durationMs={log.durationMs}
+                              thresholdMs={log.latencyErrorThresholdMs}
+                            />
+                          ) : null}
+                        </span>
+                      </span>
                     </div>
-                    <p className="mt-2 truncate text-muted">
-                      {log.method} {log.path}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="rounded-2xl bg-panel-strong p-4 text-sm text-muted">
-                  No latency alerts in the latest logs.
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-3xl bg-panel p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-black">Error snapshot</h2>
-                <p className="mt-1 text-sm text-muted">
-                  Latest problematic calls.
-                </p>
-              </div>
-              <ButtonLink href="/dashboard/errors" variant="secondary">
-                Errors
-              </ButtonLink>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <MiniStat label="4xx" value={clientErrors} />
-              <MiniStat label="5xx" tone="danger" value={serverErrors} />
-            </div>
-
-            <div className="mt-5 grid gap-2">
-              {latestErrors.length ? (
-                latestErrors.map((log) => (
-                  <div
-                    className="rounded-2xl bg-panel-strong p-3 text-sm"
-                    key={log.id}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate font-black">{log.projectName}</span>
-                      <StatusBadge statusCode={log.statusCode} />
+                    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 text-muted">
+                      <span className="min-w-0 truncate leading-5">
+                        {log.method} {log.path}
+                      </span>
+                      <span className="whitespace-nowrap text-right leading-5">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </span>
                     </div>
-                    <p className="mt-2 truncate text-muted">
-                      {log.method} {log.path}
-                    </p>
                   </div>
-                ))
-              ) : (
-                <p className="rounded-2xl bg-panel-strong p-4 text-sm text-muted">
-                  No problematic calls in the latest logs.
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
+                );
+              })
+            ) : (
+              <p className="rounded-2xl bg-panel-strong p-4 text-sm text-muted">
+                No problematic calls in the latest logs.
+              </p>
+            )}
+          </div>
+        </section>
       </section>
-    </div>
-  );
-}
-
-function MiniStat({
-  label,
-  tone = "default",
-  value
-}: {
-  label: string;
-  tone?: "danger" | "default";
-  value: number;
-}) {
-  return (
-    <div className="rounded-2xl bg-panel-strong p-4">
-      <p className="text-sm text-muted">{label}</p>
-      <p
-        className={`mt-2 text-2xl font-black ${
-          tone === "danger" ? "text-red-300" : "text-foreground"
-        }`}
-      >
-        {value}
-      </p>
     </div>
   );
 }

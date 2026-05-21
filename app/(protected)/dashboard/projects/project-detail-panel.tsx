@@ -68,6 +68,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
   const [latencyAudience, setLatencyAudience] =
     useState<EmailAlertAudience>("admin_and_above");
   const [latencyCustomUserIds, setLatencyCustomUserIds] = useState<string[]>([]);
+  const [isChangingApiKey, setIsChangingApiKey] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [logs, setLogs] = useState<RequestLog[]>([]);
 
@@ -139,6 +140,56 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
       toast.success("API key copied.");
     } catch {
       toast.error("Could not reach the API server.");
+    }
+  }
+
+  async function changeApiKey() {
+    if (!project) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Change this project's API key? The current key will stop working immediately."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsChangingApiKey(true);
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/projects/${project.id}/api-key/regenerate`,
+        {
+          credentials: "include",
+          method: "POST"
+        }
+      );
+      const data = (await response.json().catch(() => ({}))) as {
+        apiKey?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.apiKey) {
+        toast.error(data.error ?? "Could not change API key.");
+        return;
+      }
+
+      setProject((current) =>
+        current ? { ...current, hasApiKey: true } : current
+      );
+
+      try {
+        await navigator.clipboard.writeText(data.apiKey);
+        toast.success("API key changed and copied.");
+      } catch {
+        toast.info("API key changed. Use Copy API key to copy it.");
+      }
+    } catch {
+      toast.error("Could not reach the API server.");
+    } finally {
+      setIsChangingApiKey(false);
     }
   }
 
@@ -570,11 +621,23 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               {project.description || "No description yet."}
             </p>
           </div>
-          {canCopyApiKey && project.hasApiKey ? (
-            <Button onClick={copyApiKey} type="button" variant="secondary">
-              Copy API key
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap gap-3">
+            {canCopyApiKey && project.hasApiKey ? (
+              <Button onClick={copyApiKey} type="button" variant="secondary">
+                Copy API key
+              </Button>
+            ) : null}
+            {canManageProject ? (
+              <Button
+                disabled={isChangingApiKey}
+                onClick={changeApiKey}
+                type="button"
+                variant="secondary"
+              >
+                {isChangingApiKey ? "Changing..." : "Change API key"}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </section>
 
