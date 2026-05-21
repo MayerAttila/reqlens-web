@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiEdit3, FiTrash2 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
+import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
 import {
   DropdownSelect,
   DropdownSelectOption
@@ -30,6 +31,8 @@ import type {
 type ProjectDetailPanelProps = {
   projectId: string;
 };
+
+type DangerConfirmation = "api-key" | "delete-project";
 
 type RequestLog = {
   id: string;
@@ -62,12 +65,16 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
   const [customPicker, setCustomPicker] = useState<"error" | "latency" | null>(
     null
   );
+  const [dangerConfirmation, setDangerConfirmation] =
+    useState<DangerConfirmation | null>(null);
   const [errorAudience, setErrorAudience] =
     useState<EmailAlertAudience>("admin_and_above");
   const [errorCustomUserIds, setErrorCustomUserIds] = useState<string[]>([]);
   const [latencyAudience, setLatencyAudience] =
     useState<EmailAlertAudience>("admin_and_above");
   const [latencyCustomUserIds, setLatencyCustomUserIds] = useState<string[]>([]);
+  const [visibleApiKey, setVisibleApiKey] = useState<string | null>(null);
+  const [isLoadingApiKey, setIsLoadingApiKey] = useState(false);
   const [isChangingApiKey, setIsChangingApiKey] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [logs, setLogs] = useState<RequestLog[]>([]);
@@ -78,6 +85,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
 
   async function loadProject() {
     try {
+      setVisibleApiKey(null);
       const [projectsResponse, logsResponse] = await Promise.all([
         fetch(`${apiUrl}/projects`, { credentials: "include" }),
         fetch(`${apiUrl}/logs`, { credentials: "include" })
@@ -143,16 +151,50 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     }
   }
 
-  async function changeApiKey() {
+  async function showApiKey() {
     if (!project) {
       return;
     }
 
-    const confirmed = window.confirm(
-      "Change this project's API key? The current key will stop working immediately."
-    );
+    setIsLoadingApiKey(true);
 
-    if (!confirmed) {
+    try {
+      const response = await fetch(`${apiUrl}/projects/${project.id}/api-key`, {
+        credentials: "include"
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        apiKey?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.apiKey) {
+        toast.error(data.error ?? "Could not load API key.");
+        return;
+      }
+
+      setVisibleApiKey(data.apiKey);
+    } catch {
+      toast.error("Could not reach the API server.");
+    } finally {
+      setIsLoadingApiKey(false);
+    }
+  }
+
+  async function copyVisibleApiKey() {
+    if (!visibleApiKey) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(visibleApiKey);
+      toast.success("Shown API key copied.");
+    } catch {
+      toast.error("Could not copy shown API key.");
+    }
+  }
+
+  async function changeApiKey() {
+    if (!project) {
       return;
     }
 
@@ -172,19 +214,20 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
       };
 
       if (!response.ok || !data.apiKey) {
-        toast.error(data.error ?? "Could not change API key.");
+        toast.error(data.error ?? "Could not regenerate API key.");
         return;
       }
 
       setProject((current) =>
         current ? { ...current, hasApiKey: true } : current
       );
+      setVisibleApiKey(data.apiKey);
 
       try {
         await navigator.clipboard.writeText(data.apiKey);
-        toast.success("API key changed and copied.");
+        toast.success("API key regenerated and copied.");
       } catch {
-        toast.info("API key changed. Use Copy API key to copy it.");
+        toast.info("API key regenerated. Use Copy API key to copy it.");
       }
     } catch {
       toast.error("Could not reach the API server.");
@@ -621,23 +664,6 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               {project.description || "No description yet."}
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {canCopyApiKey && project.hasApiKey ? (
-              <Button onClick={copyApiKey} type="button" variant="secondary">
-                Copy API key
-              </Button>
-            ) : null}
-            {canManageProject ? (
-              <Button
-                disabled={isChangingApiKey}
-                onClick={changeApiKey}
-                type="button"
-                variant="secondary"
-              >
-                {isChangingApiKey ? "Changing..." : "Change API key"}
-              </Button>
-            ) : null}
-          </div>
         </div>
       </section>
 
@@ -650,7 +676,6 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
             value: stats.requestCount
           },
           {
-            helperText: `${latencyThresholdMs} ms or higher`,
             href: `/dashboard/errors?projectId=${project.id}&type=latency`,
             label: "Latency alerts",
             linkLabel: "View slow calls",
@@ -794,20 +819,77 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
 
           {canManageProject ? (
             <div className="rounded-3xl bg-panel p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-black">Danger zone</h2>
-                  <p className="mt-1 text-sm text-muted">
-                    Permanently remove this project and its logs.
-                  </p>
+              <h2 className="text-lg font-black">Danger zone</h2>
+              <div className="mt-4 grid gap-4">
+                {project.hasApiKey ? (
+                  <div className="grid gap-4 rounded-2xl bg-panel-strong p-4 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-center">
+                    <div className="min-w-0">
+                      <p className="font-black">API key</p>
+                      <p className="mt-1 text-sm text-muted">
+                        Old key stops immediately.
+                      </p>
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-background/45 p-2">
+                        <p
+                          className={`min-w-0 flex-1 whitespace-nowrap px-2 font-mono text-xs text-foreground ${
+                            visibleApiKey ? "truncate" : "overflow-hidden"
+                          }`}
+                          title={visibleApiKey ?? undefined}
+                        >
+                          {visibleApiKey ?? "********************************"}
+                        </p>
+                        <CopyIconButton
+                          className="size-9 rounded-xl"
+                          label="Copy API key"
+                          onCopy={visibleApiKey ? copyVisibleApiKey : copyApiKey}
+                        />
+                      </div>
+                      <button
+                        className="h-10 rounded-xl bg-surface px-4 text-sm font-semibold text-foreground transition hover:bg-surface-soft disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={isLoadingApiKey}
+                        onClick={() => {
+                          if (visibleApiKey) {
+                            setVisibleApiKey(null);
+                            return;
+                          }
+
+                          void showApiKey();
+                        }}
+                        type="button"
+                      >
+                        {isLoadingApiKey
+                          ? "Loading..."
+                          : visibleApiKey
+                            ? "Hide"
+                            : "Reveal"}
+                      </button>
+                      <button
+                        className="h-10 rounded-xl bg-red-500/15 px-4 text-sm font-semibold text-red-200 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={isChangingApiKey}
+                        onClick={() => setDangerConfirmation("api-key")}
+                        type="button"
+                      >
+                        {isChangingApiKey ? "Regenerating..." : "Regenerate"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="flex flex-col gap-4 rounded-2xl bg-panel-strong p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-black">Delete project</p>
+                    <p className="mt-1 text-sm text-muted">
+                      Permanently remove this project and its logs.
+                    </p>
+                  </div>
+                  <button
+                    className="rounded-2xl bg-red-500/15 px-5 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/25"
+                    onClick={() => setDangerConfirmation("delete-project")}
+                    type="button"
+                  >
+                    Delete
+                  </button>
                 </div>
-                <button
-                  className="rounded-2xl bg-red-500/15 px-5 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/25"
-                  onClick={() => void deleteProject()}
-                  type="button"
-                >
-                  Delete
-                </button>
               </div>
             </div>
           ) : null}
@@ -844,6 +926,28 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                 : "Error alert recipients"
             }
             users={getProjectUsers(project)}
+          />
+        ) : null}
+
+        {dangerConfirmation ? (
+          <DangerConfirmModal
+            action={dangerConfirmation}
+            isBusy={
+              dangerConfirmation === "api-key" ? isChangingApiKey : false
+            }
+            onClose={() => setDangerConfirmation(null)}
+            onConfirm={() => {
+              const confirmedAction = dangerConfirmation;
+              setDangerConfirmation(null);
+
+              if (confirmedAction === "api-key") {
+                void changeApiKey();
+                return;
+              }
+
+              void deleteProject();
+            }}
+            projectName={project.name}
           />
         ) : null}
 
@@ -1060,6 +1164,58 @@ const memberRoleOptions: Array<DropdownSelectOption<ProjectMemberRole>> = [
   { label: "Developer", value: "developer" },
   { label: "Viewer", value: "viewer" }
 ];
+
+function DangerConfirmModal({
+  action,
+  isBusy,
+  onClose,
+  onConfirm,
+  projectName
+}: {
+  action: DangerConfirmation;
+  isBusy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  projectName: string;
+}) {
+  const isApiKeyAction = action === "api-key";
+  const title = isApiKeyAction ? "Regenerate API key" : "Delete project";
+  const confirmLabel = isApiKeyAction ? "Regenerate key" : "Delete project";
+  const body = isApiKeyAction
+    ? "The current key will stop working immediately. Any client using it must be updated with the new key."
+    : "This permanently removes the project and its request logs. This cannot be undone.";
+
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-md rounded-3xl bg-panel p-6 shadow-2xl shadow-black/40">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-red-300">
+          Danger zone
+        </p>
+        <h2 className="mt-2 text-2xl font-black">{title}</h2>
+        <p className="mt-2 text-sm text-muted">{body}</p>
+        <div className="mt-5 rounded-2xl bg-panel-strong p-4">
+          <p className="text-xs uppercase tracking-[0.16em] text-muted">
+            Project
+          </p>
+          <p className="mt-1 truncate font-black">{projectName}</p>
+        </div>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <button
+            className="rounded-lg bg-red-500/20 px-5 py-3.5 text-sm font-semibold text-red-100 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isBusy}
+            onClick={onConfirm}
+            type="button"
+          >
+            {isBusy ? "Working..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CustomAlertUsersModal({
   onClose,
