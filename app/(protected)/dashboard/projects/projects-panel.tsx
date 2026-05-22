@@ -31,6 +31,11 @@ export type EmailAlertAudience =
   | "developer_and_above";
 
 export type ProjectSettings = {
+  errorDigestEmailAudience: EmailAlertAudience;
+  errorDigestEmailCustomUserIds: string[];
+  errorDigestEmailEnabled: boolean;
+  errorDigestEmailTime: string;
+  errorDigestEmailTimezone: string;
   errorEmailAudience: EmailAlertAudience;
   errorEmailCustomUserIds: string[];
   errorEmailEnabled: boolean;
@@ -424,6 +429,13 @@ function normalizeProjectSettings(settings: Project["settings"] | undefined) {
   return {
     errorEmailAudience: normalizeEmailAlertAudience(settings?.errorEmailAudience),
     errorEmailCustomUserIds: settings?.errorEmailCustomUserIds ?? [],
+    errorDigestEmailAudience: normalizeEmailAlertAudience(
+      settings?.errorDigestEmailAudience
+    ),
+    errorDigestEmailCustomUserIds: settings?.errorDigestEmailCustomUserIds ?? [],
+    errorDigestEmailEnabled: settings?.errorDigestEmailEnabled ?? false,
+    errorDigestEmailTime: settings?.errorDigestEmailTime ?? "08:00",
+    errorDigestEmailTimezone: settings?.errorDigestEmailTimezone ?? "UTC",
     errorEmailEnabled: settings?.errorEmailEnabled ?? false,
     errorEmailRecipient: settings?.errorEmailRecipient ?? null,
     latencyEmailAudience: normalizeEmailAlertAudience(settings?.latencyEmailAudience),

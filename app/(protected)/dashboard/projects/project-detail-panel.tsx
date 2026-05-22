@@ -3,7 +3,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiArrowLeft, FiEdit3, FiTrash2 } from "react-icons/fi";
+import { FiArrowLeft, FiClock, FiEdit3, FiTrash2 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
 import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
@@ -62,7 +62,7 @@ const emptyProjectStats: ProjectStats = {
 export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [customPicker, setCustomPicker] = useState<"error" | "latency" | null>(
+  const [customPicker, setCustomPicker] = useState<"digest" | "error" | "latency" | null>(
     null
   );
   const [dangerConfirmation, setDangerConfirmation] =
@@ -70,9 +70,13 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
   const [errorAudience, setErrorAudience] =
     useState<EmailAlertAudience>("admin_and_above");
   const [errorCustomUserIds, setErrorCustomUserIds] = useState<string[]>([]);
+  const [digestAudience, setDigestAudience] =
+    useState<EmailAlertAudience>("admin_and_above");
+  const [digestCustomUserIds, setDigestCustomUserIds] = useState<string[]>([]);
   const [latencyAudience, setLatencyAudience] =
     useState<EmailAlertAudience>("admin_and_above");
   const [latencyCustomUserIds, setLatencyCustomUserIds] = useState<string[]>([]);
+  const [digestTimezone, setDigestTimezone] = useState("UTC");
   const [visibleApiKey, setVisibleApiKey] = useState<string | null>(null);
   const [isLoadingApiKey, setIsLoadingApiKey] = useState(false);
   const [isChangingApiKey, setIsChangingApiKey] = useState(false);
@@ -82,6 +86,10 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
   useEffect(() => {
     void loadProject();
   }, [projectId]);
+
+  useEffect(() => {
+    setDigestTimezone(getBrowserTimezone());
+  }, []);
 
   async function loadProject() {
     try {
@@ -108,6 +116,12 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
       setLatencyCustomUserIds(foundProject?.settings.latencyEmailCustomUserIds ?? []);
       setErrorAudience(foundProject?.settings.errorEmailAudience ?? "admin_and_above");
       setErrorCustomUserIds(foundProject?.settings.errorEmailCustomUserIds ?? []);
+      setDigestAudience(
+        foundProject?.settings.errorDigestEmailAudience ?? "admin_and_above"
+      );
+      setDigestCustomUserIds(
+        foundProject?.settings.errorDigestEmailCustomUserIds ?? []
+      );
       setLogs(
         logsData.projects.find((item) => item.projectId === projectId)?.logs ?? []
       );
@@ -358,6 +372,18 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     }
 
     const formData = new FormData(event.currentTarget);
+    const errorDigestEmailEnabled =
+      formData.get("errorDigestEmailEnabled") === "on";
+    const errorDigestEmailTime = String(
+      formData.get("errorDigestEmailTime") ?? "08:00"
+    );
+    const errorDigestEmailTimezone = String(
+      formData.get("errorDigestEmailTimezone") ?? "UTC"
+    );
+    const errorDigestEmailAudience = digestAudience;
+    const errorDigestEmailCustomUserIds = formData
+      .getAll("errorDigestEmailCustomUserIds")
+      .map(String);
     const errorEmailEnabled = formData.get("errorEmailEnabled") === "on";
     const errorEmailAudience = errorAudience;
     const errorEmailCustomUserIds = formData
@@ -374,6 +400,11 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     try {
       const response = await fetch(`${apiUrl}/projects/${project.id}/settings`, {
         body: JSON.stringify({
+          errorDigestEmailEnabled,
+          errorDigestEmailAudience,
+          errorDigestEmailCustomUserIds,
+          errorDigestEmailTime,
+          errorDigestEmailTimezone,
           errorEmailAudience,
           errorEmailCustomUserIds,
           errorEmailEnabled,
@@ -741,9 +772,68 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
             {canManageProject ? (
               <form
                 className="mt-6 grid gap-5"
-                key={`${project.id}-${project.settings.latencyErrorThresholdMs}`}
+                key={`${project.id}-${project.settings.latencyErrorThresholdMs}-${project.settings.errorDigestEmailEnabled}-${project.settings.errorDigestEmailTime}-${project.settings.errorDigestEmailTimezone}`}
                 onSubmit={updateProjectSettings}
               >
+                <div className="rounded-3xl bg-panel-strong p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">
+                        Daily error digest
+                      </p>
+                      <h3 className="mt-2 text-lg font-black">
+                        Email the last day of errors
+                      </h3>
+                      <p className="mt-1 text-sm text-muted">
+                        Send one daily summary to the error email recipients.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+                      <DigestTimePicker
+                        defaultValue={project.settings.errorDigestEmailTime}
+                        name="errorDigestEmailTime"
+                      />
+                      <ToggleInput
+                        defaultChecked={project.settings.errorDigestEmailEnabled}
+                        name="errorDigestEmailEnabled"
+                      />
+                    </div>
+                  </div>
+                  <input
+                    name="errorDigestEmailTimezone"
+                    type="hidden"
+                    value={digestTimezone}
+                  />
+                  <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <CustomAudienceSelect
+                      inputName="errorDigestEmailAudience"
+                      onChange={setDigestAudience}
+                      value={digestAudience}
+                    />
+                    <button
+                      className="rounded-2xl bg-surface px-4 py-3 text-sm font-black text-foreground transition hover:bg-surface-soft"
+                      onClick={() => setCustomPicker("digest")}
+                      type="button"
+                    >
+                      Choose users (
+                      {getAlertRecipientCount({
+                        audience: digestAudience,
+                        customUserIds: digestCustomUserIds,
+                        users: getProjectUsers(project)
+                      })}
+                      )
+                    </button>
+                  </div>
+                  {digestCustomUserIds.map((userId) => (
+                    <input
+                      key={userId}
+                      name="errorDigestEmailCustomUserIds"
+                      type="hidden"
+                      value={userId}
+                    />
+                  ))}
+                </div>
+
                 <NotificationSetting
                   audienceName="latencyEmailAudience"
                   checkboxName="latencyEmailEnabled"
@@ -798,7 +888,7 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                     users: getProjectUsers(project)
                   })}
                   selectedAudience={errorAudience}
-                  title="Email errored API calls"
+                  title="Email errors immediately"
                 >
                   Send one summary email when an ingest batch includes calls with
                   status 400 or higher.
@@ -902,6 +992,9 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               if (customPicker === "latency") {
                 setLatencyAudience("custom");
                 setLatencyCustomUserIds(selectedIds);
+              } else if (customPicker === "digest") {
+                setDigestAudience("custom");
+                setDigestCustomUserIds(selectedIds);
               } else {
                 setErrorAudience("custom");
                 setErrorCustomUserIds(selectedIds);
@@ -910,20 +1003,33 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
               setCustomPicker(null);
             }}
             selectedUserIds={
-              customPicker === "latency" ? latencyCustomUserIds : errorCustomUserIds
+              customPicker === "latency"
+                ? latencyCustomUserIds
+                : customPicker === "digest"
+                  ? digestCustomUserIds
+                  : errorCustomUserIds
             }
             suggestedUserIds={getSuggestedRecipientIds({
-              audience: customPicker === "latency" ? latencyAudience : errorAudience,
+              audience:
+                customPicker === "latency"
+                  ? latencyAudience
+                  : customPicker === "digest"
+                    ? digestAudience
+                    : errorAudience,
               customUserIds:
                 customPicker === "latency"
                   ? latencyCustomUserIds
+                  : customPicker === "digest"
+                    ? digestCustomUserIds
                   : errorCustomUserIds,
               users: getProjectUsers(project)
             })}
             title={
               customPicker === "latency"
                 ? "Latency alert recipients"
-                : "Error alert recipients"
+                : customPicker === "digest"
+                  ? "Daily digest recipients"
+                  : "Error alert recipients"
             }
             users={getProjectUsers(project)}
           />
@@ -1152,12 +1258,193 @@ function NotificationSetting({
   );
 }
 
+function DigestTimePicker({
+  defaultValue,
+  name
+}: {
+  defaultValue: string;
+  name: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [value, setValue] = useState(normalizeDigestTime(defaultValue));
+  const time = parseDigestTime(value);
+
+  function updateHour(hour: number) {
+    setValue(formatDigestTime(toHour24(hour, time.period), time.minute));
+  }
+
+  function updateMinute(minute: number) {
+    setValue(formatDigestTime(time.hour24, minute));
+  }
+
+  function updatePeriod(period: DigestPeriod) {
+    setValue(formatDigestTime(toHour24(time.hour, period), time.minute));
+  }
+
+  return (
+    <div className="relative">
+      <input name={name} type="hidden" value={value} />
+      <button
+        aria-expanded={isOpen}
+        aria-label="Daily error digest send time"
+        className="group flex h-10 min-w-[9.5rem] items-center gap-2 border-b border-line text-left transition hover:border-primary/55 focus:border-primary focus:outline-none"
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <FiEdit3 className="size-3.5 shrink-0 text-muted transition group-hover:text-primary group-focus:text-primary" />
+        <span className="min-w-0 flex-1 whitespace-nowrap text-sm text-foreground">
+          {formatDigestTimeLabel(time)}
+        </span>
+        <FiClock className="size-3.5 shrink-0 text-muted transition group-hover:text-primary group-focus:text-primary" />
+      </button>
+
+      {isOpen ? (
+        <div className="absolute right-0 top-[calc(100%+0.6rem)] z-50 w-[17rem] rounded-2xl border border-primary/35 bg-panel p-3 shadow-2xl shadow-black/35">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_4.25rem] gap-2">
+            <DigestTimeColumn
+              label="Hour"
+              onSelect={updateHour}
+              selected={time.hour}
+              values={digestHours}
+            />
+            <DigestTimeColumn
+              label="Minute"
+              onSelect={updateMinute}
+              selected={time.minute}
+              values={digestMinutes}
+            />
+            <DigestPeriodColumn
+              onSelect={updatePeriod}
+              selected={time.period}
+            />
+          </div>
+          <button
+            className="mt-3 h-9 w-full rounded-xl bg-surface text-sm font-black text-foreground transition hover:bg-surface-soft"
+            onClick={() => setIsOpen(false)}
+            type="button"
+          >
+            Done
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DigestTimeColumn({
+  label,
+  onSelect,
+  selected,
+  values
+}: {
+  label: string;
+  onSelect: (value: number) => void;
+  selected: number;
+  values: number[];
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-2 px-1 text-[11px] font-black uppercase tracking-[0.16em] text-muted">
+        {label}
+      </p>
+      <div className="grid max-h-48 gap-1 overflow-y-auto rounded-xl bg-background/45 p-1">
+        {values.map((value) => (
+          <button
+            className={`h-8 rounded-lg text-sm font-black transition ${
+              value === selected
+                ? "bg-primary text-white"
+                : "text-foreground hover:bg-surface"
+            }`}
+            key={value}
+            onClick={() => onSelect(value)}
+            type="button"
+          >
+            {String(value).padStart(2, "0")}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DigestPeriodColumn({
+  onSelect,
+  selected
+}: {
+  onSelect: (period: DigestPeriod) => void;
+  selected: DigestPeriod;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-2 px-1 text-[11px] font-black uppercase tracking-[0.16em] text-muted">
+        Half
+      </p>
+      <div className="grid gap-1 rounded-xl bg-background/45 p-1">
+        {digestPeriods.map((period) => (
+          <button
+            className={`h-8 rounded-lg text-sm font-black transition ${
+              period === selected
+                ? "bg-primary text-white"
+                : "text-foreground hover:bg-surface"
+            }`}
+            key={period}
+            onClick={() => onSelect(period)}
+            type="button"
+          >
+            {period}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const emailAudienceOptions: Array<DropdownSelectOption<EmailAlertAudience>> = [
   { label: "All users", value: "all" },
   { label: "Admin and above", value: "admin_and_above" },
   { label: "Developer and above", value: "developer_and_above" },
   { label: "Custom users", value: "custom" }
 ];
+
+type DigestPeriod = "AM" | "PM";
+
+const digestHours = Array.from({ length: 12 }, (_, index) => index + 1);
+const digestMinutes = Array.from({ length: 60 }, (_, index) => index);
+const digestPeriods: DigestPeriod[] = ["AM", "PM"];
+
+function normalizeDigestTime(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : "08:00";
+}
+
+function parseDigestTime(value: string) {
+  const [hourValue, minuteValue] = normalizeDigestTime(value).split(":");
+  const hour24 = Number(hourValue);
+  const minute = Number(minuteValue);
+
+  return {
+    hour: hour24 % 12 || 12,
+    hour24,
+    minute,
+    period: hour24 < 12 ? ("AM" as const) : ("PM" as const)
+  };
+}
+
+function toHour24(hour: number, period: DigestPeriod) {
+  const twelveHour = hour % 12;
+
+  return period === "PM" ? twelveHour + 12 : twelveHour;
+}
+
+function formatDigestTime(hour: number, minute: number) {
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function formatDigestTimeLabel(time: ReturnType<typeof parseDigestTime>) {
+  return `${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(
+    2,
+    "0"
+  )} ${time.period}`;
+}
 
 const memberRoleOptions: Array<DropdownSelectOption<ProjectMemberRole>> = [
   { label: "Admin", value: "admin" },
@@ -1388,6 +1675,13 @@ function normalizeProjectSettings(settings: Project["settings"] | undefined) {
   return {
     errorEmailAudience: normalizeEmailAlertAudience(settings?.errorEmailAudience),
     errorEmailCustomUserIds: settings?.errorEmailCustomUserIds ?? [],
+    errorDigestEmailAudience: normalizeEmailAlertAudience(
+      settings?.errorDigestEmailAudience
+    ),
+    errorDigestEmailCustomUserIds: settings?.errorDigestEmailCustomUserIds ?? [],
+    errorDigestEmailEnabled: settings?.errorDigestEmailEnabled ?? false,
+    errorDigestEmailTime: settings?.errorDigestEmailTime ?? "08:00",
+    errorDigestEmailTimezone: settings?.errorDigestEmailTimezone ?? "UTC",
     errorEmailEnabled: settings?.errorEmailEnabled ?? false,
     errorEmailRecipient: settings?.errorEmailRecipient ?? null,
     latencyEmailAudience: normalizeEmailAlertAudience(settings?.latencyEmailAudience),
@@ -1397,6 +1691,10 @@ function normalizeProjectSettings(settings: Project["settings"] | undefined) {
     latencyErrorThresholdMs:
       settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
   };
+}
+
+function getBrowserTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
 
 function normalizeEmailAlertAudience(
