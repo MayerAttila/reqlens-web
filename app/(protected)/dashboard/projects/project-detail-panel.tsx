@@ -1347,7 +1347,7 @@ function DigestTimeColumn({
       <p className="mb-2 px-1 text-[11px] font-black uppercase tracking-[0.16em] text-muted">
         {label}
       </p>
-      <div className="grid max-h-48 gap-1 overflow-y-auto rounded-xl bg-background/45 p-1">
+      <div className="time-picker-scroll grid max-h-48 gap-1 overflow-y-auto rounded-xl bg-background/45 p-1">
         {values.map((value) => (
           <button
             className={`h-8 rounded-lg text-sm font-black transition ${

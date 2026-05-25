@@ -100,9 +100,11 @@ export function ChangePasswordForm() {
         type="password"
       />
       {formError ? <p className="-mt-2 text-sm text-red-300">{formError}</p> : null}
-      <Button className="w-full sm:w-fit" disabled={pending} type="submit">
-        {pending ? "Changing..." : "Change password"}
-      </Button>
+      <div className="flex justify-end">
+        <Button disabled={pending} type="submit">
+          {pending ? "Changing..." : "Change password"}
+        </Button>
+      </div>
     </form>
   );
 }

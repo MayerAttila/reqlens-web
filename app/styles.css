@@ -73,3 +73,29 @@ input {
 .Toastify__close-button:hover {
   color: var(--color-foreground);
 }
+
+.time-picker-scroll {
+  scrollbar-color: var(--color-primary-deep) rgba(255, 255, 255, 0.04);
+  scrollbar-width: thin;
+}
+
+.time-picker-scroll::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.time-picker-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.time-picker-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--color-primary-deep);
+  background-clip: content-box;
+}
+
+.time-picker-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-soft);
+  background-clip: content-box;
+}
