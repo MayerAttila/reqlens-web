@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
 import { toast } from "react-toastify";
 import { DropdownSelect } from "../../../../components/ui/dropdown-select";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
@@ -49,20 +58,71 @@ type RouteStat = {
   slowCount: number;
 };
 
+type TrafficBucket = {
+  errors: number;
+  healthy: number;
+  key: number;
+  label: string;
+  slow: number;
+  total: number;
+};
+
+type TimeframeValue = "12h" | "24h" | "7d" | "30d";
+type TrafficSeriesKey = "errors" | "healthy" | "slow";
+type TrafficBucketUnit = "day" | "hour";
+
 const apiUrl = process.env.NEXT_PUBLIC_REQLENS_API_URL ?? "http://localhost:3001";
+const timeframeOptions: Array<{ label: string; value: TimeframeValue }> = [
+  { label: "Last 12 hours", value: "12h" },
+  { label: "Last 24 hours", value: "24h" },
+  { label: "Last 7 days", value: "7d" },
+  { label: "Last 30 days", value: "30d" }
+];
+const trafficSeries: Array<{
+  fill: string;
+  key: TrafficSeriesKey;
+  label: string;
+  stroke: string;
+}> = [
+  {
+    fill: "#6f63ff",
+    key: "healthy",
+    label: "Healthy",
+    stroke: "#8178ff"
+  },
+  {
+    fill: "#ffd166",
+    key: "slow",
+    label: "Slow",
+    stroke: "#ffd166"
+  },
+  {
+    fill: "#ff5b73",
+    key: "errors",
+    label: "Errors",
+    stroke: "#ff6b80"
+  }
+];
 
 export function StatisticsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectLogs[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("all");
+  const [selectedTimeframe, setSelectedTimeframe] =
+    useState<TimeframeValue>("24h");
 
   useEffect(() => {
     void loadLogs();
-  }, []);
+  }, [selectedTimeframe]);
 
   async function loadLogs() {
+    setIsLoading(true);
+
     try {
-      const response = await fetch(`${apiUrl}/logs`, {
+      const params = new URLSearchParams({
+        since: getTimeframeStart(selectedTimeframe).toISOString()
+      });
+      const response = await fetch(`${apiUrl}/logs?${params.toString()}`, {
         credentials: "include"
       });
 
@@ -119,7 +179,7 @@ export function StatisticsPanel() {
     visibleLogs,
     (log) => log.method
   );
-  const trafficBuckets = getTrafficBuckets(visibleLogs);
+  const trafficBuckets = getTrafficBuckets(visibleLogs, selectedTimeframe);
   const routeStats = getRouteStats(visibleLogs).slice(0, 8);
   const projectStats = getProjectStats(visibleLogs).slice(0, 6);
   const sampleWindow = getSampleWindow(visibleLogs);
@@ -183,29 +243,22 @@ export function StatisticsPanel() {
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
         <Panel
+          action={
+            <div className="w-44">
+              <DropdownSelect
+                onChange={setSelectedTimeframe}
+                options={timeframeOptions}
+                size="sm"
+                value={selectedTimeframe}
+              />
+            </div>
+          }
           empty={!trafficBuckets.length}
           emptyText="No request volume to chart yet."
           title="Traffic"
         >
-          <div className="grid min-h-64 grid-cols-6 items-end gap-2 sm:grid-cols-12">
-            {trafficBuckets.map((bucket) => (
-              <div className="grid min-w-0 gap-2" key={bucket.key}>
-                <div className="flex h-52 items-end rounded-2xl bg-background/45 p-1.5">
-                  <div
-                    className="w-full rounded-xl bg-primary transition"
-                    style={{ height: `${bucket.height}%` }}
-                    title={`${bucket.count} requests`}
-                  />
-                </div>
-                <div className="min-w-0 text-center">
-                  <p className="truncate text-xs font-black text-foreground">
-                    {bucket.count}
-                  </p>
-                  <p className="truncate text-[11px] text-muted">{bucket.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <TrafficChart data={trafficBuckets} />
+          <TrafficSummaryCards data={trafficBuckets} />
         </Panel>
 
         <div className="grid gap-6">
@@ -285,11 +338,13 @@ export function StatisticsPanel() {
 }
 
 function Panel({
+  action,
   children,
   empty,
   emptyText,
   title
 }: {
+  action?: React.ReactNode;
   children: React.ReactNode;
   empty: boolean;
   emptyText: string;
@@ -297,7 +352,10 @@ function Panel({
 }) {
   return (
     <section className="min-w-0 rounded-3xl bg-panel p-6">
-      <h2 className="text-xl font-black text-foreground">{title}</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xl font-black text-foreground">{title}</h2>
+        {action}
+      </div>
       {empty ? (
         <p className="mt-4 rounded-2xl bg-panel-strong p-4 text-sm text-muted">
           {emptyText}
@@ -339,6 +397,184 @@ function DistributionPanel({
         ))}
       </div>
     </Panel>
+  );
+}
+
+function TrafficSummaryCards({ data }: { data: TrafficBucket[] }) {
+  return (
+    <div className="mt-6 grid gap-3 md:grid-cols-3">
+      {trafficSeries.map((series) => (
+        <TrafficSummaryCard
+          color={series.stroke}
+          data={data}
+          dataKey={series.key}
+          fill={series.fill}
+          key={series.key}
+          label={series.label}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TrafficSummaryCard({
+  color,
+  data,
+  dataKey,
+  fill,
+  label
+}: {
+  color: string;
+  data: TrafficBucket[];
+  dataKey: TrafficSeriesKey;
+  fill: string;
+  label: string;
+}) {
+  const total = data.reduce((sum, bucket) => sum + bucket[dataKey], 0);
+  const gradientId = `traffic-mini-${dataKey}`;
+
+  return (
+    <div className="grid min-h-24 grid-cols-[minmax(0,0.8fr)_minmax(5.5rem,1fr)] gap-3 rounded-2xl bg-background/45 p-4">
+      <div className="min-w-0 self-center">
+        <p className="truncate text-xs font-black text-muted">{label}</p>
+        <p className="mt-3 text-2xl font-black text-foreground">
+          {formatCompactNumber(total)}
+        </p>
+      </div>
+      <div className="h-16 min-w-0 self-end">
+        <ResponsiveContainer height="100%" width="100%">
+          <AreaChart data={data} margin={{ bottom: 0, left: 0, right: 0, top: 4 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="5%" stopColor={fill} stopOpacity={0.45} />
+                <stop offset="95%" stopColor={fill} stopOpacity={0.04} />
+              </linearGradient>
+            </defs>
+            <Area
+              dataKey={dataKey}
+              fill={`url(#${gradientId})`}
+              isAnimationActive={false}
+              stroke={color}
+              strokeWidth={2}
+              type="monotone"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function TrafficChart({ data }: { data: TrafficBucket[] }) {
+  return (
+    <div className="h-72 min-w-0">
+      <ResponsiveContainer height="100%" width="100%">
+        <AreaChart data={data} margin={{ bottom: 0, left: -24, right: 8, top: 10 }}>
+          <defs>
+            <linearGradient id="trafficHealthy" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="5%" stopColor="#6f63ff" stopOpacity={0.95} />
+              <stop offset="95%" stopColor="#6f63ff" stopOpacity={0.72} />
+            </linearGradient>
+            <linearGradient id="trafficSlow" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="5%" stopColor="#ffd166" stopOpacity={0.95} />
+              <stop offset="95%" stopColor="#ffd166" stopOpacity={0.72} />
+            </linearGradient>
+            <linearGradient id="trafficErrors" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="5%" stopColor="#ff5b73" stopOpacity={0.95} />
+              <stop offset="95%" stopColor="#ff5b73" stopOpacity={0.72} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="#303136" strokeDasharray="4 4" vertical={false} />
+          <XAxis
+            axisLine={false}
+            dataKey="label"
+            tick={{ fill: "#96969a", fontSize: 12 }}
+            tickLine={false}
+          />
+          <YAxis
+            allowDecimals={false}
+            axisLine={false}
+            tick={{ fill: "#96969a", fontSize: 12 }}
+            tickLine={false}
+          />
+          <Tooltip
+            content={<TrafficTooltip />}
+            cursor={{ stroke: "#57575d", strokeDasharray: "4 4" }}
+          />
+          <Area
+            dataKey="healthy"
+            fill="url(#trafficHealthy)"
+            name="Healthy"
+            stackId="traffic"
+            stroke="#6f63ff"
+            strokeWidth={2}
+            type="monotone"
+          />
+          <Area
+            dataKey="slow"
+            fill="url(#trafficSlow)"
+            name="Slow"
+            stackId="traffic"
+            stroke="#ffd166"
+            strokeWidth={2}
+            type="monotone"
+          />
+          <Area
+            dataKey="errors"
+            fill="url(#trafficErrors)"
+            name="Errors"
+            stackId="traffic"
+            stroke="#ff5b73"
+            strokeWidth={2}
+            type="monotone"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function TrafficTooltip({
+  active,
+  payload,
+  label
+}: {
+  active?: boolean;
+  label?: string;
+  payload?: Array<{
+    color?: string;
+    dataKey?: string;
+    name?: string;
+    value?: number;
+  }>;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const total = payload.reduce((sum, item) => sum + Number(item.value ?? 0), 0);
+
+  return (
+    <div className="rounded-2xl border border-line bg-panel px-4 py-3 text-sm shadow-2xl shadow-black/35">
+      <p className="font-black text-foreground">{label}</p>
+      <p className="mt-1 text-xs text-muted">{total} requests</p>
+      <div className="mt-3 grid gap-1.5">
+        {payload
+          .filter((item) => Number(item.value ?? 0) > 0)
+          .map((item) => (
+            <div className="flex items-center justify-between gap-5" key={item.dataKey}>
+              <span className="inline-flex items-center gap-2 text-muted">
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+                {item.name}
+              </span>
+              <span className="font-black text-foreground">{item.value}</span>
+            </div>
+          ))}
+      </div>
+    </div>
   );
 }
 
@@ -396,6 +632,29 @@ function formatPercent(count: number, total: number) {
   return `${Math.round((count / total) * 1000) / 10}%`;
 }
 
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat(undefined, {
+    compactDisplay: "short",
+    notation: "compact"
+  }).format(value);
+}
+
+function getTimeframeStart(timeframe: TimeframeValue) {
+  const now = new Date();
+
+  switch (timeframe) {
+    case "12h":
+      return new Date(now.getTime() - 12 * 60 * 60 * 1000);
+    case "7d":
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case "30d":
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case "24h":
+    default:
+      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  }
+}
+
 function getStatusDistribution(logs: VisibleLog[]): DistributionItem[] {
   const groups = [
     {
@@ -437,29 +696,128 @@ function getCountDistribution<TItem>(
     .slice(0, 6);
 }
 
-function getTrafficBuckets(logs: VisibleLog[]) {
-  const counts = new Map<number, number>();
-
-  for (const log of logs) {
-    const date = new Date(log.createdAt);
-    date.setMinutes(0, 0, 0);
-    const key = date.getTime();
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+function getTrafficBuckets(logs: VisibleLog[], timeframe: TimeframeValue) {
+  if (!logs.length) {
+    return [];
   }
 
-  const buckets = [...counts.entries()]
-    .sort(([first], [second]) => first - second)
-    .slice(-12);
-  const maxCount = Math.max(...buckets.map(([, count]) => count), 1);
+  const config = getTrafficBucketConfig(timeframe);
 
-  return buckets.map(([key, count]) => ({
-    count,
-    height: Math.max((count / maxCount) * 100, 8),
-    key,
-    label: new Date(key).toLocaleTimeString([], {
-      hour: "numeric"
-    })
-  }));
+  const counts = new Map<
+    number,
+    {
+      errors: number;
+      healthy: number;
+      slow: number;
+      total: number;
+    }
+  >();
+
+  for (const log of logs) {
+    const date = floorTrafficBucket(new Date(log.createdAt), config.unit);
+    const key = date.getTime();
+    const bucket = counts.get(key) ?? {
+      errors: 0,
+      healthy: 0,
+      slow: 0,
+      total: 0
+    };
+
+    bucket.total += 1;
+
+    if (log.statusCode >= 400) {
+      bucket.errors += 1;
+    } else if (isSlowRequest(log.durationMs, log.latencyErrorThresholdMs)) {
+      bucket.slow += 1;
+    } else {
+      bucket.healthy += 1;
+    }
+
+    counts.set(key, bucket);
+  }
+
+  const latestBucket = floorTrafficBucket(new Date(), config.unit);
+  const bucketKeys = Array.from({ length: config.count }, (_item, index) => {
+    const offset = index - (config.count - 1);
+
+    return addTrafficBucketOffset(latestBucket, config.unit, offset).getTime();
+  });
+
+  return bucketKeys.map((key) => {
+    const bucket = counts.get(key) ?? {
+      errors: 0,
+      healthy: 0,
+      slow: 0,
+      total: 0
+    };
+
+    return {
+      errors: bucket.errors,
+      healthy: bucket.healthy,
+      key,
+      label: formatTrafficBucketLabel(key, config.unit),
+      slow: bucket.slow,
+      total: bucket.total
+    };
+  });
+}
+
+function getTrafficBucketConfig(timeframe: TimeframeValue): {
+  count: number;
+  unit: TrafficBucketUnit;
+} {
+  if (timeframe === "7d") {
+    return { count: 7, unit: "day" };
+  }
+
+  if (timeframe === "30d") {
+    return { count: 30, unit: "day" };
+  }
+
+  if (timeframe === "12h") {
+    return { count: 12, unit: "hour" };
+  }
+
+  return { count: 24, unit: "hour" };
+}
+
+function floorTrafficBucket(date: Date, unit: TrafficBucketUnit) {
+  const bucket = new Date(date);
+
+  if (unit === "day") {
+    bucket.setHours(0, 0, 0, 0);
+  } else {
+    bucket.setMinutes(0, 0, 0);
+  }
+
+  return bucket;
+}
+
+function addTrafficBucketOffset(date: Date, unit: TrafficBucketUnit, offset: number) {
+  const bucket = new Date(date);
+
+  if (unit === "day") {
+    bucket.setDate(bucket.getDate() + offset);
+  } else {
+    bucket.setHours(bucket.getHours() + offset);
+  }
+
+  return bucket;
+}
+
+function formatTrafficBucketLabel(key: number, unit: TrafficBucketUnit) {
+  const date = new Date(key);
+
+  if (unit === "day") {
+    return date.toLocaleDateString([], {
+      day: "numeric",
+      month: "short"
+    });
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: "numeric"
+  });
 }
 
 function getRouteStats(logs: VisibleLog[]): RouteStat[] {
