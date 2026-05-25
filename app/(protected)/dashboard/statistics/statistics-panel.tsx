@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
+  Cell,
   CartesianGrid,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -180,9 +183,16 @@ export function StatisticsPanel() {
     (log) => log.method
   );
   const trafficBuckets = getTrafficBuckets(visibleLogs, selectedTimeframe);
-  const routeStats = getRouteStats(visibleLogs).slice(0, 8);
+  const routeStats = getRouteStats(visibleLogs).slice(0, 5);
   const projectStats = getProjectStats(visibleLogs).slice(0, 6);
   const sampleWindow = getSampleWindow(visibleLogs);
+  const requestHref = getDashboardHref("/dashboard/requests", selectedProjectId);
+  const errorHref = getDashboardHref("/dashboard/errors", selectedProjectId, {
+    type: "errors"
+  });
+  const latencyHref = getDashboardHref("/dashboard/errors", selectedProjectId, {
+    type: "latency"
+  });
 
   return (
     <div className="grid gap-6">
@@ -218,25 +228,28 @@ export function StatisticsPanel() {
       <MetricGrid
         blocks={[
           {
-            helperText: "Recent tracked sample",
+            href: requestHref,
             label: "Requests",
+            linkLabel: "View requests",
             value: totalRequests
           },
           {
-            helperText: `${errorCount} errored calls`,
+            href: errorHref,
+            label: "Errors",
+            linkLabel: "View errors",
+            tone: errorCount ? "danger" : "default",
+            value: errorCount
+          },
+          {
+            href: latencyHref,
+            label: "Latency alerts",
+            linkLabel: "View slow calls",
+            value: slowCount
+          },
+          {
             label: "Error rate",
             tone: errorCount ? "danger" : "default",
             value: errorRate
-          },
-          {
-            helperText: `${averageLatency} ms average`,
-            label: "P95 latency",
-            value: `${p95Latency} ms`
-          },
-          {
-            helperText: "Over project latency limits",
-            label: "Slow calls",
-            value: slowCount
           }
         ]}
       />
@@ -262,12 +275,12 @@ export function StatisticsPanel() {
         </Panel>
 
         <div className="grid gap-6">
-          <DistributionPanel
+          <StatusMixPanel
             emptyText="No statuses yet."
             items={statusDistribution}
             title="Status mix"
           />
-          <DistributionPanel
+          <MethodMixPanel
             emptyText="No methods yet."
             items={methodDistribution}
             title="Method mix"
@@ -312,21 +325,26 @@ export function StatisticsPanel() {
             {projectStats.map((project) => (
               <div className="rounded-2xl bg-panel-strong px-4 py-3" key={project.id}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-black text-foreground">
-                      {project.name}
-                    </p>
-                    <p className="mt-1 text-xs text-muted">
-                      {project.averageLatency} ms avg latency
-                    </p>
-                  </div>
-                  <p className="text-2xl font-black text-foreground">
-                    {project.requestCount}
+                  <p className="min-w-0 truncate font-black text-foreground">
+                    {project.name}
+                  </p>
+                  <p className="shrink-0 text-right text-sm font-black text-muted">
+                    {project.requestCount} requests
                   </p>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <StatPill label="Errors" tone="danger" value={project.errorCount} />
-                  <StatPill label="Slow" tone="warning" value={project.slowCount} />
+                  <StatPill
+                    label="Errors"
+                    meta={formatPercent(project.errorCount, project.requestCount)}
+                    tone="danger"
+                    value={project.errorCount}
+                  />
+                  <StatPill
+                    label="Slow"
+                    meta={`${project.averageLatency} ms`}
+                    tone="warning"
+                    value={project.slowCount}
+                  />
                 </div>
               </div>
             ))}
@@ -397,6 +415,157 @@ function DistributionPanel({
         ))}
       </div>
     </Panel>
+  );
+}
+
+function StatusMixPanel({
+  emptyText,
+  items,
+  title
+}: {
+  emptyText: string;
+  items: DistributionItem[];
+  title: string;
+}) {
+  const total = items.reduce((sum, item) => sum + item.count, 0);
+
+  return (
+    <Panel empty={!items.length} emptyText={emptyText} title={title}>
+      <div className="grid gap-4">
+        <div className="h-4 overflow-hidden rounded-full bg-background/60">
+          <div className="flex h-full w-full">
+            {items.map((item) => (
+              <div
+                className={statusMixSegmentClass(item.tone)}
+                key={item.label}
+                style={{ width: `${Math.max((item.count / total) * 100, 2)}%` }}
+                title={`${item.label}: ${item.count}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          {items.map((item) => (
+            <div
+              className="flex items-center justify-between gap-3 rounded-xl bg-background/45 px-3 py-2 text-sm"
+              key={item.label}
+            >
+              <span className="inline-flex min-w-0 items-center gap-2 font-black text-foreground">
+                <span
+                  className={`size-2.5 shrink-0 rounded-full ${statusMixDotClass(
+                    item.tone
+                  )}`}
+                />
+                <span className="truncate">{item.label}</span>
+              </span>
+              <span className="shrink-0 text-muted">
+                {item.count} / {formatPercent(item.count, total)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function MethodMixPanel({
+  emptyText,
+  items,
+  title
+}: {
+  emptyText: string;
+  items: DistributionItem[];
+  title: string;
+}) {
+  const total = items.reduce((sum, item) => sum + item.count, 0);
+
+  return (
+    <Panel empty={!items.length} emptyText={emptyText} title={title}>
+      <div className="grid gap-5 sm:grid-cols-[minmax(8rem,0.8fr)_minmax(0,1fr)] sm:items-center xl:grid-cols-1 2xl:grid-cols-[minmax(8rem,0.8fr)_minmax(0,1fr)]">
+        <div className="relative h-44 min-w-0">
+          <ResponsiveContainer height="100%" width="100%">
+            <PieChart>
+              <Pie
+                cx="50%"
+                cy="50%"
+                data={items}
+                dataKey="count"
+                innerRadius="62%"
+                outerRadius="88%"
+                paddingAngle={3}
+                stroke="none"
+              >
+                {items.map((item, index) => (
+                  <Cell fill={methodMixColor(index)} key={item.label} />
+                ))}
+              </Pie>
+              <Tooltip content={<MethodMixTooltip total={total} />} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+            <div>
+              <p className="text-2xl font-black text-foreground">{total}</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-muted">
+                Calls
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-2">
+          {items.map((item, index) => (
+            <div
+              className="flex items-center justify-between gap-3 rounded-xl bg-background/45 px-3 py-2 text-sm"
+              key={item.label}
+            >
+              <span className="inline-flex min-w-0 items-center gap-2 font-black text-foreground">
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: methodMixColor(index) }}
+                />
+                <span className="truncate">{item.label}</span>
+              </span>
+              <span className="text-muted">{item.count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function MethodMixTooltip({
+  active,
+  payload,
+  total
+}: {
+  active?: boolean;
+  payload?: Array<{
+    name?: string;
+    payload?: DistributionItem;
+    value?: number;
+  }>;
+  total: number;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const item = payload[0].payload;
+  const value = Number(payload[0].value ?? 0);
+
+  if (!item) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-line bg-panel px-4 py-3 text-sm shadow-2xl shadow-black/35">
+      <p className="font-black text-foreground">{item.label}</p>
+      <p className="mt-1 text-xs text-muted">
+        {value} calls / {formatPercent(value, total)}
+      </p>
+    </div>
   );
 }
 
@@ -580,12 +749,14 @@ function TrafficTooltip({
 
 function StatPill({
   label,
+  meta,
   tone = "default",
   value
 }: {
   label: string;
+  meta?: React.ReactNode;
   tone?: "danger" | "default" | "warning";
-  value: number;
+  value: React.ReactNode;
 }) {
   return (
     <div
@@ -600,7 +771,10 @@ function StatPill({
       <p className="text-[11px] font-black uppercase tracking-[0.14em] opacity-70">
         {label}
       </p>
-      <p className="mt-1 text-sm font-black">{value}</p>
+      <div className="mt-1 flex items-baseline justify-between gap-3">
+        <p className="text-sm font-black">{value}</p>
+        {meta ? <p className="text-xs font-black opacity-75">{meta}</p> : null}
+      </div>
     </div>
   );
 }
@@ -637,6 +811,22 @@ function formatCompactNumber(value: number) {
     compactDisplay: "short",
     notation: "compact"
   }).format(value);
+}
+
+function getDashboardHref(
+  path: string,
+  selectedProjectId: string,
+  params: Record<string, string> = {}
+) {
+  const searchParams = new URLSearchParams(params);
+
+  if (selectedProjectId !== "all") {
+    searchParams.set("projectId", selectedProjectId);
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `${path}?${query}` : path;
 }
 
 function getTimeframeStart(timeframe: TimeframeValue) {
@@ -890,4 +1080,34 @@ function distributionToneClass(tone: DistributionItem["tone"]) {
   }
 
   return "bg-primary";
+}
+
+function statusMixDotClass(tone: DistributionItem["tone"]) {
+  if (tone === "danger") {
+    return "bg-red-300";
+  }
+
+  if (tone === "warning") {
+    return "bg-yellow-200";
+  }
+
+  return "bg-primary-soft";
+}
+
+function statusMixSegmentClass(tone: DistributionItem["tone"]) {
+  if (tone === "danger") {
+    return "h-full bg-red-300";
+  }
+
+  if (tone === "warning") {
+    return "h-full bg-yellow-200";
+  }
+
+  return "h-full bg-primary-soft";
+}
+
+function methodMixColor(index: number) {
+  const colors = ["#8f5cff", "#56d6ff", "#ffd166", "#ff6b80", "#66e3b4", "#c7a6ff"];
+
+  return colors[index % colors.length];
 }

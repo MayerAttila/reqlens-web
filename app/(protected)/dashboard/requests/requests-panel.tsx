@@ -89,7 +89,7 @@ export function RequestsPanel() {
   const [logs, setLogs] = useState<RequestLog[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(250);
+  const [pageSize, setPageSize] = useState(50);
   const [projects, setProjects] = useState<Project[]>([]);
   const [requestSearch, setRequestSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -208,7 +208,7 @@ export function RequestsPanel() {
   return (
     <div className="grid gap-6">
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <SummaryCard helperText="Current page" label="Requests" value={logs.length} />
+        <SummaryCard label="Requests" value={logs.length} />
         <SummaryCard label="Successful" value={successfulRequests} />
         <SummaryCard
           href="/dashboard/errors"
@@ -229,7 +229,7 @@ export function RequestsPanel() {
 
       <section className="rounded-3xl bg-panel p-6">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_8rem] lg:max-w-md">
+          <div className="w-full lg:max-w-xs">
             <DropdownSelect
               onChange={setSelectedProjectId}
               options={[
@@ -240,14 +240,6 @@ export function RequestsPanel() {
                 }))
               ]}
               value={selectedProjectId}
-            />
-            <DropdownSelect
-              onChange={(value) => setPageSize(Number(value))}
-              options={pageSizeOptions.map((option) => ({
-                label: String(option),
-                value: String(option)
-              }))}
-              value={String(pageSize)}
             />
           </div>
           <SearchInput
@@ -278,9 +270,11 @@ export function RequestsPanel() {
           canGoPrevious={pageIndex > 0}
           endCount={logs.length}
           onNext={goNext}
+          onPageSizeChange={setPageSize}
           onPrevious={goPrevious}
           page={pageIndex + 1}
           pageSize={pageSize}
+          pageSizeOptions={pageSizeOptions}
         />
       </section>
     </div>
@@ -292,26 +286,40 @@ function ServerPagination({
   canGoPrevious,
   endCount,
   onNext,
+  onPageSizeChange,
   onPrevious,
   page,
-  pageSize
+  pageSize,
+  pageSizeOptions
 }: {
   canGoNext: boolean;
   canGoPrevious: boolean;
   endCount: number;
   onNext: () => void;
+  onPageSizeChange: (pageSize: number) => void;
   onPrevious: () => void;
   page: number;
   pageSize: number;
+  pageSizeOptions: number[];
 }) {
-  const start = endCount === 0 ? 0 : (page - 1) * pageSize + 1;
-  const end = (page - 1) * pageSize + endCount;
-
   return (
     <div className="mt-3 flex flex-col gap-3 rounded-2xl bg-panel-strong px-4 py-3 text-sm text-muted md:flex-row md:items-center md:justify-between">
-      <span>
-        {start}-{end}
-      </span>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2">
+          <span className="text-xs">Rows</span>
+          <div className="w-24">
+            <DropdownSelect
+              onChange={(value) => onPageSizeChange(Number(value))}
+              options={pageSizeOptions.map((option) => ({
+                label: String(option),
+                value: String(option)
+              }))}
+              size="sm"
+              value={String(pageSize)}
+            />
+          </div>
+        </div>
+      </div>
       <div className="flex items-center gap-2">
         <button
           className="h-9 rounded-xl bg-surface px-3 text-foreground transition hover:bg-surface-soft disabled:cursor-not-allowed disabled:opacity-40"

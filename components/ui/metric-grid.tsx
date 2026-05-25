@@ -45,9 +45,9 @@ function MetricCard({ block }: { block: MetricBlock }) {
       {block.helperText ? (
         <p className="mt-2 text-xs text-muted">{block.helperText}</p>
       ) : null}
-      {block.href ? (
+      {block.href && block.linkLabel ? (
         <p className="mt-4 text-xs font-black text-muted">
-          {block.linkLabel ?? "Open"} →
+          {block.linkLabel} →
         </p>
       ) : null}
     </>
