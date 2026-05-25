@@ -304,7 +304,9 @@ export function DataTable<TItem>({
                   }`}
                 >
                   <div className="min-h-0 overflow-hidden">
-                    <div className="px-4 pb-4">{expandedRow(item)}</div>
+                    <div className="px-4 pb-4">
+                      {isExpanded ? expandedRow(item) : null}
+                    </div>
                   </div>
                 </div>
               ) : null}
