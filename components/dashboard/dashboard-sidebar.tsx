@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import {
   FiActivity,
   FiAlertTriangle,
+  FiBarChart2,
   FiChevronLeft,
   FiChevronRight,
   FiDatabase,
@@ -24,7 +25,8 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: FiHome },
   { href: "/dashboard/projects", label: "Projects", icon: FiDatabase },
   { href: "/dashboard/requests", label: "Requests", icon: FiActivity },
-  { href: "/dashboard/errors", label: "Errors", icon: FiAlertTriangle }
+  { href: "/dashboard/errors", label: "Problems", icon: FiAlertTriangle },
+  { href: "/dashboard/statistics", label: "Statistics", icon: FiBarChart2 }
 ] satisfies Array<{
   href: string;
   label: string;
