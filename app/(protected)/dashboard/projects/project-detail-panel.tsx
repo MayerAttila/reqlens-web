@@ -12,6 +12,7 @@ import {
   DropdownSelectOption
 } from "../../../../components/ui/dropdown-select";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
+import { NumberStepper } from "../../../../components/ui/number-stepper";
 import {
   defaultLatencyErrorThresholdMs,
   isSlowRequest
@@ -842,22 +843,16 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
                   defaultChecked={project.settings.latencyEmailEnabled}
                   eyebrow="Latency emails"
                   latencyThresholdInput={
-                    <label className="group flex h-10 w-32 items-center gap-2 border-b border-line transition focus-within:border-primary">
-                      <FiEdit3 className="size-3.5 shrink-0 text-muted transition group-focus-within:text-primary" />
-                      <input
-                        aria-label="Latency alert limit in milliseconds"
-                        className="w-16 bg-transparent text-sm text-foreground outline-none"
-                        defaultValue={project.settings.latencyErrorThresholdMs}
-                        max={60000}
-                        min={1}
-                        name="latencyErrorThresholdMs"
-                        required
-                        type="number"
-                      />
-                      <span className="shrink-0 text-xs text-muted transition group-focus-within:text-primary">
-                        ms
-                      </span>
-                    </label>
+                    <NumberStepper
+                      ariaLabel="Latency alert limit in milliseconds"
+                      className="w-36"
+                      defaultValue={project.settings.latencyErrorThresholdMs}
+                      max={60000}
+                      min={1}
+                      name="latencyErrorThresholdMs"
+                      required
+                      unit="ms"
+                    />
                   }
                   onAudienceChange={setLatencyAudience}
                   onCustomize={() => setCustomPicker("latency")}

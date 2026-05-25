@@ -14,6 +14,7 @@ import { toast } from "react-toastify";
 import { Button } from "../../../../components/ui/button";
 import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
 import { DropdownSelect } from "../../../../components/ui/dropdown-select";
+import { NumberStepper } from "../../../../components/ui/number-stepper";
 import { TextInput } from "../../../../components/ui/text-input";
 import { ChangePasswordForm } from "./change-password-form";
 
@@ -268,18 +269,16 @@ export function SettingsPanel() {
           title="Default alert settings"
         >
           <div className="grid gap-5 lg:grid-cols-2">
-            <TextInput
+            <NumberStepper
               disabled={isLoading}
               label="Latency threshold"
+              max={60000}
               min={1}
               name="defaultLatencyErrorThresholdMs"
-              onChange={(event) =>
-                updateSetting(
-                  "defaultLatencyErrorThresholdMs",
-                  Number(event.target.value)
-                )
+              onChange={(value) =>
+                updateSetting("defaultLatencyErrorThresholdMs", value)
               }
-              type="number"
+              unit="ms"
               value={settings.defaultLatencyErrorThresholdMs}
             />
             <Field label="Daily digest time">
