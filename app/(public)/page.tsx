@@ -10,21 +10,6 @@ import {
 } from "react-icons/fi";
 import { ButtonLink } from "../../components/ui/button";
 
-const workflowSteps = [
-  {
-    title: "Create a project",
-    text: "Generate one API key per backend service, environment, or client app."
-  },
-  {
-    title: "Install the middleware",
-    text: "Send method, route, status, latency, and error payload snapshots to Reqlens."
-  },
-  {
-    title: "Watch the dashboard",
-    text: "Review recent requests, slow calls, problem routes, and alert settings in one place."
-  }
-];
-
 const workspaceItems = [
   {
     icon: FiHome,
@@ -121,39 +106,49 @@ export default function HomePage() {
                 Open dashboard
               </ButtonLink>
             </div>
-            <div className="mt-10 grid max-w-3xl gap-3 text-sm text-muted sm:grid-cols-3">
-              <ProofPoint label="Tracked calls" value="30+" />
-              <ProofPoint label="Problem routes" value="Errors + latency" />
-              <ProofPoint label="Setup path" value="Project API key" />
-            </div>
           </div>
         </div>
       </section>
 
       <section
         className="border-t border-panel bg-background px-5 py-20 md:px-8"
-        id="how-it-works"
+        id="connectivity"
       >
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-3xl">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-primary">
-              How it works
+              Connectivity
             </p>
             <h2 className="mt-3 text-4xl font-black md:text-5xl">
-              Add visibility without building another internal tool.
+              Connect a backend in minutes.
             </h2>
+            <p className="mt-5 text-sm leading-7 text-muted">
+              Create a project, copy the generated API key, and send request
+              events from your service. Reqlens turns those calls into logs,
+              problems, charts, and alerts automatically.
+            </p>
+            <div className="mt-8 grid gap-3">
+              {[
+                ["1", "Create project", "Generate a scoped key for one backend."],
+                ["2", "Add middleware", "Send method, path, status, latency, and payloads."],
+                ["3", "Open dashboard", "Watch requests, errors, slow calls, and charts fill in."]
+              ].map(([step, title, text]) => (
+                <div
+                  className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-2xl bg-panel p-4"
+                  key={step}
+                >
+                  <span className="grid size-10 place-items-center rounded-2xl bg-primary/15 text-sm font-black text-primary-soft">
+                    {step}
+                  </span>
+                  <div>
+                    <p className="font-black text-foreground">{title}</p>
+                    <p className="mt-1 text-sm text-muted">{text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {workflowSteps.map((step, index) => (
-              <article className="rounded-3xl bg-panel p-6" key={step.title}>
-                <span className="grid size-10 place-items-center rounded-2xl bg-primary/15 text-sm font-black text-primary-soft">
-                  {index + 1}
-                </span>
-                <h3 className="mt-5 text-xl font-black">{step.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-muted">{step.text}</p>
-              </article>
-            ))}
-          </div>
+          <HeroSnippet />
         </div>
       </section>
 
@@ -226,7 +221,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-panel-strong px-5 py-20 md:px-8">
+      <section className="bg-panel-strong px-5 py-20 md:px-8" id="statistics-preview">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.44fr_0.56fr] lg:items-center">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-primary">
@@ -363,8 +358,9 @@ export default function HomePage() {
             <FooterColumn
               title="Product"
               links={[
-                ["Features", "#features"],
-                ["How it works", "#how-it-works"],
+                ["Connectivity", "#connectivity"],
+                ["Workspace", "#workspace"],
+                ["Statistics", "#statistics-preview"],
                 ["Dashboard", "/dashboard"]
               ]}
             />
@@ -422,6 +418,58 @@ function ProofPoint({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl bg-panel/85 p-4">
       <p className="text-xs uppercase tracking-[0.16em] text-muted">{label}</p>
       <p className="mt-2 font-black text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function HeroSnippet() {
+  return (
+    <div className="min-w-0 rounded-[2rem] bg-panel/90 p-5 shadow-2xl shadow-black/20">
+      <div className="flex items-center justify-between gap-4 border-b border-line/45 pb-3">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
+          Connect backend
+        </p>
+        <span className="rounded-full bg-surface px-3 py-1 text-xs font-black text-muted">
+          Project API key
+        </span>
+      </div>
+      <pre className="mt-4 overflow-x-auto rounded-2xl bg-panel-strong p-4 text-sm leading-7 text-foreground">
+        <code>{`app.use(reqlens({
+  apiKey: "PROJECT_API_KEY"
+}));`}</code>
+      </pre>
+
+      <div className="mt-5 hidden gap-2 sm:grid sm:grid-cols-2">
+        {[
+          ["Status codes", "2xx, 4xx, 5xx"],
+          ["Latency", "slow-call threshold"],
+          ["Routes", "method + path"],
+          ["Payloads", "request / response"],
+          ["Alerts", "errors + latency"],
+          ["Digest", "daily summary"]
+        ].map(([label, value]) => (
+          <div className="rounded-2xl bg-background/60 px-3 py-2.5" key={label}>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-primary-soft">
+              {label}
+            </p>
+            <p className="mt-1 text-sm font-black text-foreground">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-panel-strong p-4">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="font-black text-foreground">POST /api/orders</span>
+          <span className="rounded-full bg-yellow-500/15 px-3 py-1 text-xs font-black text-yellow-200">
+            422
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-muted">
+          <span className="rounded-full bg-surface px-3 py-1.5">763 ms</span>
+          <span className="rounded-full bg-surface px-3 py-1.5">JSON body</span>
+          <span className="rounded-full bg-surface px-3 py-1.5">project scoped</span>
+        </div>
+      </div>
     </div>
   );
 }
