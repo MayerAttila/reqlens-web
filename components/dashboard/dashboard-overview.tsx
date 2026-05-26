@@ -15,6 +15,7 @@ import {
   StatusBadge
 } from "../ui/request-badges";
 import { SearchInput } from "../ui/search-input";
+import { useRequestLogEvents } from "./use-request-log-events";
 
 type RequestLog = {
   id: string;
@@ -97,6 +98,10 @@ export function DashboardOverview() {
   useEffect(() => {
     void loadLogs();
   }, []);
+
+  useRequestLogEvents(() => {
+    void loadLogs();
+  });
 
   async function loadLogs() {
     try {

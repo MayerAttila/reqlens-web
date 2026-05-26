@@ -14,6 +14,7 @@ import {
   YAxis
 } from "recharts";
 import { toast } from "react-toastify";
+import { useRequestLogEvents } from "../../../../components/dashboard/use-request-log-events";
 import { DropdownSelect } from "../../../../components/ui/dropdown-select";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
 import {
@@ -117,6 +118,14 @@ export function StatisticsPanel() {
   useEffect(() => {
     void loadLogs();
   }, [selectedTimeframe]);
+
+  useRequestLogEvents((event) => {
+    if (selectedProjectId !== "all" && selectedProjectId !== event.projectId) {
+      return;
+    }
+
+    void loadLogs();
+  });
 
   async function loadLogs() {
     setIsLoading(true);

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { FiChevronDown } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
+import { useRequestLogEvents } from "../../../../components/dashboard/use-request-log-events";
 import {
   DataTable,
   DataTableColumn
@@ -170,6 +171,18 @@ export function ErrorsPanel() {
     debouncedSearch,
     pageSize
   ]);
+
+  useRequestLogEvents((event) => {
+    if (pageIndex !== 0) {
+      return;
+    }
+
+    if (selectedProjectId !== "all" && selectedProjectId !== event.projectId) {
+      return;
+    }
+
+    void loadLogs(null);
+  });
 
   async function loadProjects() {
     try {

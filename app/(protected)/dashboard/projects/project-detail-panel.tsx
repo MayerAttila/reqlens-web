@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiClock, FiEdit3, FiTrash2 } from "react-icons/fi";
 import { toast } from "react-toastify";
+import { useRequestLogEvents } from "../../../../components/dashboard/use-request-log-events";
 import { Button } from "../../../../components/ui/button";
 import { CopyIconButton } from "../../../../components/ui/copy-icon-button";
 import {
@@ -92,6 +93,14 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
     setDigestTimezone(getBrowserTimezone());
   }, []);
 
+  useRequestLogEvents((event) => {
+    if (event.projectId !== projectId) {
+      return;
+    }
+
+    void loadProjectLogs();
+  });
+
   async function loadProject() {
     try {
       setVisibleApiKey(null);
@@ -130,6 +139,21 @@ export function ProjectDetailPanel({ projectId }: ProjectDetailPanelProps) {
       toast.error("Could not load project.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadProjectLogs() {
+    try {
+      const response = await fetch(`${apiUrl}/logs`, { credentials: "include" });
+
+      if (!response.ok) {
+        throw new Error("Could not load project logs.");
+      }
+
+      const data = (await response.json()) as { projects: ProjectLogs[] };
+      setLogs(data.projects.find((item) => item.projectId === projectId)?.logs ?? []);
+    } catch {
+      toast.error("Could not load project stats.");
     }
   }
 

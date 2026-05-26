@@ -8,6 +8,7 @@ import {
   DataTable,
   DataTableColumn
 } from "../../../../components/ui/data-table";
+import { useRequestLogEvents } from "../../../../components/dashboard/use-request-log-events";
 import { DropdownSelect } from "../../../../components/ui/dropdown-select";
 import {
   isSlowRequest,
@@ -131,6 +132,18 @@ export function RequestsPanel() {
   useEffect(() => {
     void loadLogs(cursorStack[pageIndex] ?? null);
   }, [cursorStack, pageIndex, selectedProjectId, debouncedSearch, pageSize]);
+
+  useRequestLogEvents((event) => {
+    if (pageIndex !== 0) {
+      return;
+    }
+
+    if (selectedProjectId !== "all" && selectedProjectId !== event.projectId) {
+      return;
+    }
+
+    void loadLogs(null);
+  });
 
   async function loadProjects() {
     try {

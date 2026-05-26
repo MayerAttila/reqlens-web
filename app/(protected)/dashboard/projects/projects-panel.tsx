@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { useRequestLogEvents } from "../../../../components/dashboard/use-request-log-events";
 import { Button } from "../../../../components/ui/button";
 import { MetricGrid } from "../../../../components/ui/metric-grid";
 import {
@@ -115,6 +116,10 @@ export function ProjectsPanel() {
   useEffect(() => {
     void loadPageData();
   }, []);
+
+  useRequestLogEvents(() => {
+    void loadLogs();
+  });
 
   async function loadPageData() {
     await Promise.all([loadProjects(), loadLogs()]);
