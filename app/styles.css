@@ -38,6 +38,16 @@ input {
   font: inherit;
 }
 
+input:-webkit-autofill,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--color-foreground);
+  box-shadow: 0 0 0 1000px transparent inset;
+  caret-color: var(--color-foreground);
+  transition: background-color 999999s ease-in-out 0s;
+}
+
 .Toastify__toast {
   border-radius: 16px;
   background: var(--color-panel);
