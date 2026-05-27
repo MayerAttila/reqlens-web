@@ -350,48 +350,52 @@ export function ProjectsPanel() {
     <div className="grid gap-6">
       <MetricGrid blocks={metricBlocks} />
 
-      <section className="min-w-0 rounded-3xl bg-panel p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-xl font-black">Project tiles</h2>
-              <p className="mt-1 text-sm text-muted">
-                Create one project per backend app. Select a tile to inspect it.
+      <section className="min-w-0 rounded-2xl bg-panel p-4 sm:rounded-3xl sm:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-black">Project tiles</h2>
+            <p className="mt-1 text-sm text-muted">
+              Create one project per backend app. Select a tile to inspect it.
+            </p>
+          </div>
+          <Button
+            className="w-full sm:w-fit"
+            onClick={openCreateModal}
+            type="button"
+          >
+            Create project
+          </Button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {isLoading ? (
+            <p className="text-sm text-muted">Loading projects...</p>
+          ) : null}
+
+          {!isLoading && projects.length === 0 ? (
+            <button
+              className="rounded-2xl border border-dashed border-line bg-panel-strong p-5 text-left transition hover:bg-surface sm:rounded-3xl sm:p-8"
+              onClick={openCreateModal}
+              type="button"
+            >
+              <p className="text-lg font-black">No projects yet</p>
+              <p className="mt-2 text-sm text-muted">
+                Create your first project to generate an API key.
               </p>
-            </div>
-            <Button onClick={openCreateModal} type="button">
-              Create project
-            </Button>
-          </div>
+            </button>
+          ) : null}
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {isLoading ? (
-              <p className="text-sm text-muted">Loading projects...</p>
-            ) : null}
-
-            {!isLoading && projects.length === 0 ? (
-              <button
-                className="rounded-3xl border border-dashed border-line bg-panel-strong p-8 text-left transition hover:bg-surface"
-                onClick={openCreateModal}
-                type="button"
-              >
-                <p className="text-lg font-black">No projects yet</p>
-                <p className="mt-2 text-sm text-muted">
-                  Create your first project to generate an API key.
-                </p>
-              </button>
-            ) : null}
-
-            {projects.map((project) => {
-              return (
-                <ProjectCard
-                  key={project.id}
-                  onCopyApiKey={copyApiKey}
-                  project={project}
-                  stats={statsByProjectId.get(project.id) ?? emptyProjectStats}
-                />
-              );
-            })}
-          </div>
+          {projects.map((project) => {
+            return (
+              <ProjectCard
+                key={project.id}
+                onCopyApiKey={copyApiKey}
+                project={project}
+                stats={statsByProjectId.get(project.id) ?? emptyProjectStats}
+              />
+            );
+          })}
+        </div>
       </section>
 
       {isCreateOpen ? (
